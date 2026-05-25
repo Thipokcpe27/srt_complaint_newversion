@@ -1,0 +1,193 @@
+using Microsoft.EntityFrameworkCore;
+using SRT.Complaint.Models;
+
+namespace SRT.Complaint.Data;
+
+public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+{
+    public DbSet<StaffUser> StaffUsers => Set<StaffUser>();
+    public DbSet<ComplaintCategory> ComplaintCategories => Set<ComplaintCategory>();
+    public DbSet<SlaConfig> SlaConfigs => Set<SlaConfig>();
+    public DbSet<Models.Complaint> Complaints => Set<Models.Complaint>();
+    public DbSet<ComplaintAttachment> ComplaintAttachments => Set<ComplaintAttachment>();
+    public DbSet<ComplaintNote> ComplaintNotes => Set<ComplaintNote>();
+    public DbSet<ComplaintTransferLog> ComplaintTransferLogs => Set<ComplaintTransferLog>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<ApiKeyScope> ApiKeyScopes => Set<ApiKeyScope>();
+    public DbSet<ApiRequestLog> ApiRequestLogs => Set<ApiRequestLog>();
+    public DbSet<Webhook> Webhooks => Set<Webhook>();
+    public DbSet<WebhookDeliveryLog> WebhookDeliveryLogs => Set<WebhookDeliveryLog>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<StaffUser>(e =>
+        {
+            e.ToTable("StaffUsers", "dbo");
+            e.HasIndex(x => x.EmployeeCode).IsUnique();
+            e.Property(x => x.EmployeeCode).HasMaxLength(7).IsFixedLength();
+            e.Property(x => x.FullName).HasMaxLength(200);
+            e.Property(x => x.Email).HasMaxLength(200);
+            e.Property(x => x.PasswordHash).HasMaxLength(512);
+            e.Property(x => x.Role).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<ComplaintCategory>(e =>
+        {
+            e.ToTable("ComplaintCategories", "dbo");
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.Property(x => x.DepartmentName).HasMaxLength(200);
+            e.Property(x => x.DefaultPriority).HasMaxLength(20);
+        });
+
+        modelBuilder.Entity<SlaConfig>(e =>
+        {
+            e.ToTable("SlaConfigs", "dbo");
+            e.HasIndex(x => x.Priority).IsUnique();
+            e.Property(x => x.Priority).HasMaxLength(20);
+            e.Property(x => x.LabelTh).HasMaxLength(100);
+            e.HasOne(x => x.UpdatedBy).WithMany().HasForeignKey(x => x.UpdatedById).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Models.Complaint>(e =>
+        {
+            e.ToTable("Complaints", "dbo");
+            e.HasIndex(x => x.ReferenceNumber).IsUnique();
+            e.Property(x => x.ReferenceNumber).HasMaxLength(20);
+            e.Property(x => x.ReporterName).HasMaxLength(200);
+            e.Property(x => x.ReporterPhone).HasMaxLength(20);
+            e.Property(x => x.ReporterEmail).HasMaxLength(200);
+            e.Property(x => x.SubjectStation).HasMaxLength(200);
+            e.Property(x => x.Priority).HasMaxLength(20);
+            e.Property(x => x.Status).HasMaxLength(50);
+            e.Property(x => x.SatisfactionNote).HasMaxLength(500);
+            e.HasOne(x => x.AssignedTo).WithMany(u => u.AssignedComplaints).HasForeignKey(x => x.AssignedToId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ComplaintAttachment>(e =>
+        {
+            e.ToTable("ComplaintAttachments", "dbo");
+            e.Property(x => x.FileName).HasMaxLength(500);
+            e.Property(x => x.StoredPath).HasMaxLength(1000);
+            e.Property(x => x.MimeType).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<ComplaintNote>(e =>
+        {
+            e.ToTable("ComplaintNotes", "dbo");
+            e.Property(x => x.NoteType).HasMaxLength(20);
+        });
+
+        modelBuilder.Entity<ComplaintTransferLog>(e =>
+        {
+            e.ToTable("ComplaintTransferLog", "dbo");
+            e.Property(x => x.Reason).HasMaxLength(500);
+            e.HasOne(x => x.FromOfficer).WithMany().HasForeignKey(x => x.FromOfficerId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.ToOfficer).WithMany().HasForeignKey(x => x.ToOfficerId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AuditLog>(e =>
+        {
+            e.ToTable("AuditLogs", "dbo");
+            e.Property(x => x.ActorCode).HasMaxLength(20);
+            e.Property(x => x.Action).HasMaxLength(100);
+            e.Property(x => x.EntityType).HasMaxLength(50);
+            e.Property(x => x.EntityId).HasMaxLength(50);
+            e.Property(x => x.IpAddress).HasMaxLength(50);
+            e.HasOne(x => x.Actor).WithMany().HasForeignKey(x => x.ActorId).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<NotificationTemplate>(e =>
+        {
+            e.ToTable("NotificationTemplates", "dbo");
+            e.HasIndex(x => x.EventKey).IsUnique();
+            e.Property(x => x.EventKey).HasMaxLength(100);
+            e.Property(x => x.LabelTh).HasMaxLength(200);
+            e.Property(x => x.EmailSubject).HasMaxLength(300);
+        });
+
+        modelBuilder.Entity<ApiKey>(e =>
+        {
+            e.ToTable("ApiKeys", "dbo");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.KeyType).HasMaxLength(20);
+            e.Property(x => x.KeyPrefix).HasMaxLength(20);
+            e.Property(x => x.KeyHash).HasMaxLength(512);
+            e.Property(x => x.RevokedReason).HasMaxLength(500);
+            e.HasOne(x => x.CreatedBy).WithMany().HasForeignKey(x => x.CreatedById).OnDelete(DeleteBehavior.Restrict);
+            e.HasOne(x => x.RevokedBy).WithMany().HasForeignKey(x => x.RevokedById).OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<ApiKeyScope>(e =>
+        {
+            e.ToTable("ApiKeyScopes", "dbo");
+            e.HasIndex(x => x.ApiKeyId);
+            e.Property(x => x.Scope).HasMaxLength(100);
+            e.HasOne(x => x.ApiKey).WithMany(k => k.Scopes).HasForeignKey(x => x.ApiKeyId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ApiRequestLog>(e =>
+        {
+            e.ToTable("ApiRequestLogs", "dbo");
+            e.HasIndex(x => new { x.ApiKeyId, x.CreatedAt });
+            e.Property(x => x.HttpMethod).HasMaxLength(10);
+            e.Property(x => x.Endpoint).HasMaxLength(500);
+            e.Property(x => x.QueryString).HasMaxLength(1000);
+            e.Property(x => x.IpAddress).HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<Webhook>(e =>
+        {
+            e.ToTable("Webhooks", "dbo");
+            e.Property(x => x.Name).HasMaxLength(200);
+            e.Property(x => x.TargetUrl).HasMaxLength(1000);
+            e.Property(x => x.SecretHash).HasMaxLength(512);
+        });
+
+        modelBuilder.Entity<WebhookDeliveryLog>(e =>
+        {
+            e.ToTable("WebhookDeliveryLogs", "dbo");
+            e.Property(x => x.EventType).HasMaxLength(100);
+        });
+
+        SeedData(modelBuilder);
+    }
+
+    private static void SeedData(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<ComplaintCategory>().HasData(
+            new ComplaintCategory { Id = 1, Name = "ความตรงต่อเวลา", DepartmentName = "ฝ่ายการเดินรถ", DefaultPriority = "Normal", SortOrder = 1 },
+            new ComplaintCategory { Id = 2, Name = "บริการบนขบวนรถ", DepartmentName = "ฝ่ายการโดยสาร", DefaultPriority = "Normal", SortOrder = 2 },
+            new ComplaintCategory { Id = 3, Name = "พนักงาน / มารยาท", DepartmentName = "ฝ่ายบริหารทรัพยากรบุคคล", DefaultPriority = "Normal", SortOrder = 3 },
+            new ComplaintCategory { Id = 4, Name = "สิ่งอำนวยความสะดวก", DepartmentName = "ฝ่ายโยธา", DefaultPriority = "Normal", SortOrder = 4 },
+            new ComplaintCategory { Id = 5, Name = "ความสะอาด", DepartmentName = "ฝ่ายบริการสถานี", DefaultPriority = "Normal", SortOrder = 5 },
+            new ComplaintCategory { Id = 6, Name = "ตั๋ว / การคืนเงิน", DepartmentName = "ฝ่ายการพาณิชย์", DefaultPriority = "High", SortOrder = 6 },
+            new ComplaintCategory { Id = 7, Name = "ความปลอดภัย", DepartmentName = "ฝ่ายรักษาความปลอดภัย", DefaultPriority = "Urgent", SortOrder = 7 },
+            new ComplaintCategory { Id = 8, Name = "สถานี / ที่จอดรถ", DepartmentName = "ฝ่ายบริการสถานี", DefaultPriority = "Normal", SortOrder = 8 },
+            new ComplaintCategory { Id = 9, Name = "อื่น ๆ", DepartmentName = null, DefaultPriority = "Normal", SortOrder = 9 }
+        );
+
+        var seedDate = new DateTime(2568 - 543, 6, 1, 0, 0, 0, DateTimeKind.Utc);
+        modelBuilder.Entity<SlaConfig>().HasData(
+            new SlaConfig { Id = 1, Priority = "Critical", LabelTh = "เร่งด่วนมาก (ความปลอดภัย)", ResolutionHours = 24, AutoAssignAfterHours = 1, UpdatedAt = seedDate },
+            new SlaConfig { Id = 2, Priority = "Urgent", LabelTh = "เร่งด่วน", ResolutionHours = 72, AutoAssignAfterHours = 4, UpdatedAt = seedDate },
+            new SlaConfig { Id = 3, Priority = "High", LabelTh = "สำคัญ", ResolutionHours = 120, AutoAssignAfterHours = 8, UpdatedAt = seedDate },
+            new SlaConfig { Id = 4, Priority = "Normal", LabelTh = "ปกติ", ResolutionHours = 168, AutoAssignAfterHours = 12, UpdatedAt = seedDate },
+            new SlaConfig { Id = 5, Priority = "Low", LabelTh = "ข้อเสนอแนะ", ResolutionHours = 360, AutoAssignAfterHours = 24, UpdatedAt = seedDate }
+        );
+
+        modelBuilder.Entity<NotificationTemplate>().HasData(
+            new NotificationTemplate { Id = 1, EventKey = "ComplaintReceived", LabelTh = "รับเรื่องร้องเรียนแล้ว", EmailSubject = "[รฟท.] รับเรื่องร้องเรียนของท่านแล้ว เลขที่ {ReferenceNumber}", SmsBody = "[รฟท.] รับเรื่องร้องเรียนของท่านแล้ว เลขที่ {ReferenceNumber} ติดตามสถานะ: {TrackingUrl}" },
+            new NotificationTemplate { Id = 2, EventKey = "StatusChanged", LabelTh = "สถานะเรื่องเปลี่ยนแปลง", EmailSubject = "[รฟท.] อัปเดตสถานะเรื่องร้องเรียน {ReferenceNumber}", SmsBody = "[รฟท.] เรื่อง {ReferenceNumber} อัปเดตสถานะเป็น: {Status}" },
+            new NotificationTemplate { Id = 3, EventKey = "ComplaintClosed", LabelTh = "ปิดเรื่องร้องเรียนแล้ว", EmailSubject = "[รฟท.] เรื่องร้องเรียน {ReferenceNumber} ได้รับการแก้ไขแล้ว", SmsBody = "[รฟท.] เรื่อง {ReferenceNumber} ปิดแล้ว ขอบคุณที่ใช้บริการ" },
+            new NotificationTemplate { Id = 4, EventKey = "AutoAssigned", LabelTh = "มอบหมายเรื่องอัตโนมัติ", EmailSubject = "[รฟท.] มอบหมายเรื่องร้องเรียนให้ท่าน {ReferenceNumber}", SmsBody = null, IsSmsEnabled = false },
+            new NotificationTemplate { Id = 5, EventKey = "SlaWarning", LabelTh = "เตือน SLA ใกล้ครบกำหนด", EmailSubject = "[รฟท.] เตือน: เรื่อง {ReferenceNumber} ใกล้ครบกำหนด SLA", SmsBody = null, IsSmsEnabled = false },
+            new NotificationTemplate { Id = 6, EventKey = "SlaBreached", LabelTh = "SLA เกินกำหนดแล้ว", EmailSubject = "[รฟท.] แจ้งเตือน: เรื่อง {ReferenceNumber} เกิน SLA แล้ว", SmsBody = null, IsSmsEnabled = false },
+            new NotificationTemplate { Id = 7, EventKey = "CriticalReceived", LabelTh = "รับเรื่องเร่งด่วนมาก", EmailSubject = "[รฟท.] เร่งด่วน: รับเรื่องร้องเรียนระดับ Critical {ReferenceNumber}", SmsBody = null, IsSmsEnabled = false },
+            new NotificationTemplate { Id = 8, EventKey = "DecryptionRequested", LabelTh = "ขอดูข้อมูลผู้แจ้งทุจริต", EmailSubject = "[รฟท.] แจ้งเตือน: มีการขอดูข้อมูลผู้แจ้ง {ReferenceNumber}", SmsBody = null, IsSmsEnabled = false }
+        );
+    }
+}
