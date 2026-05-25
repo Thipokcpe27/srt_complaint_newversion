@@ -198,3 +198,11 @@ GET    /api/complaints/{ref}/edoc-payload (Scope: complaints:edoc)
 - **ทุก Service ต้องมี Interface** — เพื่อ testability
 - **เรื่องทุจริตห้าม share code กับเรื่องทั่วไป** — แม้ว่า logic คล้ายกัน
 - **Secret/Key ห้ามอยู่ใน code** — ต้องอยู่ใน Environment Variables หรือ `appsettings.Production.json` (ไม่ commit)
+
+## Session Continuity
+
+- **อ่าน PROGRESS.md ทุกครั้งที่เริ่ม session ใหม่ แล้วทำต่อจากที่ค้างไว้โดยไม่ต้องถาม
+- **ทุกครั้งที่ทำ task เสร็จ 1 อัน ให้อัปเดต PROGRESS.md ทันที โดย:
+- ** ติ๊ก task ที่เสร็จแล้ว
+- ** เพิ่ม task ถัดไปที่ต้องทำ
+- ** บันทึก issue หรือ note ที่เจอระหว่างทำ
