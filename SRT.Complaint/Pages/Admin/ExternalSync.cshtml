@@ -1,0 +1,244 @@
+@page
+@model SRT.Complaint.Pages.Admin.ExternalSyncModel
+@{
+    ViewData["Title"] = "ดึงคำร้องจากระบบภายนอก";
+    var syncResult = TempData["SyncResult"] as string;
+    string[]? parts = syncResult?.Split('|');
+}
+
+<!-- ══ Result Banner ══ -->
+@if (parts != null)
+{
+    @if (parts[0] == "success")
+    {
+        <div class="mb-5 bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3 text-sm">
+            <svg class="w-5 h-5 text-green-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <div>
+                <p class="font-semibold text-green-800">ดึงข้อมูลสำเร็จ</p>
+                <p class="text-green-700 mt-0.5">
+                    พบทั้งหมด <strong>@parts[3]</strong> รายการ —
+                    นำเข้าใหม่ <strong class="text-green-800">@parts[1]</strong> รายการ,
+                    ซ้ำ <strong>@parts[2]</strong> รายการ
+                </p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="mb-5 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 text-sm">
+            <svg class="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+            </svg>
+            <div>
+                <p class="font-semibold text-red-700">ดึงข้อมูลไม่สำเร็จ</p>
+                <p class="text-red-600 mt-0.5">@(parts.Length > 1 ? parts[1] : "เกิดข้อผิดพลาด")</p>
+            </div>
+        </div>
+    }
+}
+
+<!-- ══ Header + Pull Button ══ -->
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-lg font-bold text-gray-900">ดึงคำร้องจากระบบภายนอก</h1>
+        <p class="text-sm text-gray-500 mt-0.5">นำเข้าเรื่องร้องเรียนจากระบบหน่วยงานที่เชื่อมต่อกับ รฟท.</p>
+    </div>
+    <button type="button"
+            onclick="document.getElementById('pullModal').classList.remove('hidden')"
+            class="flex items-center gap-2 bg-srt-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-srt-navy-dark transition shadow-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        ดึงคำร้อง
+    </button>
+</div>
+
+<!-- ══ Sync History Table ══ -->
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+    <div class="px-5 py-3.5 border-b border-gray-100">
+        <h2 class="text-sm font-semibold text-gray-700">ประวัติการดึงข้อมูล</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-xs text-gray-500 font-semibold">
+                    <th class="px-4 py-3 text-left">ระบบ</th>
+                    <th class="px-4 py-3 text-left">เวลา</th>
+                    <th class="px-4 py-3 text-center">ดึงมา</th>
+                    <th class="px-4 py-3 text-center">นำเข้าใหม่</th>
+                    <th class="px-4 py-3 text-center">ซ้ำ</th>
+                    <th class="px-4 py-3 text-center">Error</th>
+                    <th class="px-4 py-3 text-center">สถานะ</th>
+                    <th class="px-4 py-3 text-left">โดย</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                @if (!Model.Logs.Any())
+                {
+                    <tr>
+                        <td colspan="8" class="px-4 py-10 text-center text-gray-400 text-sm">ยังไม่มีประวัติการดึงข้อมูล</td>
+                    </tr>
+                }
+                @foreach (var log in Model.Logs)
+                {
+                    var system = Model.Systems.FirstOrDefault(s => s.SystemKey == log.ExternalSystem);
+                    <tr class="hover:bg-gray-50/50">
+                        <td class="px-4 py-3">
+                            <span class="font-medium text-gray-800">@(system?.DisplayName ?? log.ExternalSystem)</span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-500 text-xs">
+                            @log.StartedAt.ToLocalTime().ToString("dd/MM/yy HH:mm")
+                        </td>
+                        <td class="px-4 py-3 text-center text-gray-600">@log.FetchedCount</td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="text-green-700 font-semibold">@log.NewCount</span>
+                        </td>
+                        <td class="px-4 py-3 text-center text-gray-400">@log.DuplicateCount</td>
+                        <td class="px-4 py-3 text-center">
+                            @if (log.ErrorCount > 0)
+                            {
+                                <span class="text-red-500 font-semibold">@log.ErrorCount</span>
+                            }
+                            else
+                            {
+                                <span class="text-gray-300">—</span>
+                            }
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            @if (log.SyncStatus == "Success")
+                            {
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> สำเร็จ
+                                </span>
+                            }
+                            else if (log.SyncStatus == "Failed")
+                            {
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700"
+                                      title="@log.ErrorMessage">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> ล้มเหลว
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-400 animate-pulse"></span> กำลังทำงาน
+                                </span>
+                            }
+                        </td>
+                        <td class="px-4 py-3 text-xs text-gray-500">
+                            @log.TriggeredBy?.FullName
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ══ Pull Modal ══ -->
+<div id="pullModal"
+     class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+     role="dialog" aria-modal="true" aria-labelledby="pullModalTitle">
+
+    <!-- Backdrop -->
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+         onclick="document.getElementById('pullModal').classList.add('hidden')"></div>
+
+    <!-- Panel -->
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div>
+                <h2 id="pullModalTitle" class="text-base font-bold text-gray-900">ดึงคำร้อง</h2>
+                <p class="text-xs text-gray-500 mt-0.5">เลือกระบบที่ต้องการดึงข้อมูลเข้า รฟท.</p>
+            </div>
+            <button type="button"
+                    onclick="document.getElementById('pullModal').classList.add('hidden')"
+                    aria-label="ปิด"
+                    class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- System Cards -->
+        <div class="p-6 grid grid-cols-1 gap-3">
+            @foreach (var system in Model.Systems)
+            {
+                var lastLog = Model.Logs.FirstOrDefault(l => l.ExternalSystem == system.SystemKey);
+                <div class="border rounded-xl p-4 @(system.IsConfigured ? "border-gray-200 hover:border-srt-navy/30 hover:bg-blue-50/30 transition" : "border-dashed border-gray-200 bg-gray-50 opacity-60")">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <span class="font-semibold text-gray-900 text-sm">@system.DisplayName</span>
+                                @if (system.IsConfigured)
+                                {
+                                    <span class="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">เชื่อมต่อแล้ว</span>
+                                }
+                                else
+                                {
+                                    <span class="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">รอ API spec</span>
+                                }
+                            </div>
+                            <p class="text-xs text-gray-500">@system.Description</p>
+                            @if (lastLog != null)
+                            {
+                                <p class="text-[11px] text-gray-400 mt-1">
+                                    ดึงล่าสุด: @lastLog.StartedAt.ToLocalTime().ToString("dd/MM/yy HH:mm")
+                                    — นำเข้าใหม่ @lastLog.NewCount รายการ
+                                </p>
+                            }
+                            else
+                            {
+                                <p class="text-[11px] text-gray-400 mt-1">ยังไม่เคยดึงข้อมูล</p>
+                            }
+                        </div>
+
+                        @if (system.IsConfigured)
+                        {
+                            <form method="post" asp-page-handler="Sync" class="shrink-0">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="systemKey" value="@system.SystemKey" />
+                                <button type="submit"
+                                        onclick="this.disabled=true; this.innerHTML='<svg class=\'w-3.5 h-3.5 animate-spin\' fill=\'none\' viewBox=\'0 0 24 24\'><circle class=\'opacity-25\' cx=\'12\' cy=\'12\' r=\'10\' stroke=\'currentColor\' stroke-width=\'4\'></circle><path class=\'opacity-75\' fill=\'currentColor\' d=\'M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z\'></path></svg> กำลังดึง...'; this.form.submit()"
+                                        class="flex items-center gap-1.5 bg-srt-navy text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold hover:bg-srt-navy-dark transition">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                    </svg>
+                                    ดึงข้อมูล
+                                </button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span class="shrink-0 text-xs text-gray-400 font-medium px-3 py-1.5 border border-dashed border-gray-300 rounded-lg">
+                                ยังไม่พร้อม
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Footer -->
+        <div class="px-6 pb-5">
+            <p class="text-[11px] text-gray-400 text-center">
+                ระบบจะดึงเฉพาะรายการใหม่ที่ยังไม่มีในระบบ รฟท. — รายการซ้ำจะถูกข้ามอัตโนมัติ
+            </p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // ปิด modal ด้วย Escape
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') document.getElementById('pullModal').classList.add('hidden');
+        });
+    </script>
+}

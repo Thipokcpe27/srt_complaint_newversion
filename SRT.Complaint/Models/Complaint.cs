@@ -17,7 +17,9 @@ public class Complaint
     public DateOnly? IncidentDate { get; set; }
     public string Description { get; set; } = string.Empty;
 
-    public string Channel { get; set; } = "Web";
+    public string  Channel        { get; set; } = "Web";
+    public string? ExternalSystem { get; set; }
+    public string? ExternalId     { get; set; }
     public string Priority { get; set; } = "Normal";
     public string Status { get; set; } = "Pending";
     public int? AssignedToId { get; set; }

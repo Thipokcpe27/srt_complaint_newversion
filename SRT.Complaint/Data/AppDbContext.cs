@@ -22,6 +22,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<WebhookDeliveryLog> WebhookDeliveryLogs => Set<WebhookDeliveryLog>();
     public DbSet<ComplaintTerms> ComplaintTerms => Set<ComplaintTerms>();
     public DbSet<ContentBlock> ContentBlocks => Set<ContentBlock>();
+    public DbSet<ExternalSyncLog> ExternalSyncLogs => Set<ExternalSyncLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -182,6 +183,25 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .WithMany()
              .HasForeignKey(x => x.UpdatedById)
              .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<Models.Complaint>(e =>
+        {
+            e.Property(x => x.ExternalSystem).HasMaxLength(50);
+            e.Property(x => x.ExternalId).HasMaxLength(100);
+            e.HasIndex(x => new { x.ExternalSystem, x.ExternalId })
+             .IsUnique()
+             .HasFilter("[ExternalId] IS NOT NULL");
+        });
+
+        modelBuilder.Entity<ExternalSyncLog>(e =>
+        {
+            e.ToTable("ExternalSyncLogs", "dbo");
+            e.Property(x => x.ExternalSystem).HasMaxLength(50);
+            e.Property(x => x.SyncStatus).HasMaxLength(20);
+            e.HasOne(x => x.TriggeredBy).WithMany()
+             .HasForeignKey(x => x.TriggeredById)
+             .OnDelete(DeleteBehavior.Restrict);
         });
 
         SeedData(modelBuilder);

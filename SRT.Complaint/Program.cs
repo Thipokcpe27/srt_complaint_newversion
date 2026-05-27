@@ -125,6 +125,9 @@ try
     builder.Services.AddScoped<ITurnstileService, TurnstileService>();
     builder.Services.AddScoped<IStatsService, StatsService>();
     builder.Services.AddScoped<ICorruptionStatsService, CorruptionStatsService>();
+    builder.Services.AddScoped<IExternalSyncService, ExternalSyncService>();
+    builder.Services.AddSingleton<IExternalSystemAdapter, SRT.Complaint.Services.Adapters.TraffyFonduAdapter>();
+    builder.Services.AddSingleton<IExternalSystemAdapter, SRT.Complaint.Services.Adapters.DamrongdhammaAdapter>();
     builder.Services.AddScoped<ApiKeyAuthFilter>();
 
     // ──────────── Background Services ────────────
