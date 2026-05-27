@@ -123,6 +123,8 @@ try
     builder.Services.AddScoped<ITermsService, TermsService>();
     builder.Services.AddScoped<IContentBlockService, ContentBlockService>();
     builder.Services.AddScoped<ITurnstileService, TurnstileService>();
+    builder.Services.AddScoped<IStatsService, StatsService>();
+    builder.Services.AddScoped<ICorruptionStatsService, CorruptionStatsService>();
     builder.Services.AddScoped<ApiKeyAuthFilter>();
 
     // ──────────── Background Services ────────────

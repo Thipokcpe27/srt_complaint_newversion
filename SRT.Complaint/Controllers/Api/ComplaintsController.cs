@@ -13,7 +13,7 @@ namespace SRT.Complaint.Controllers.Api;
 public class ComplaintsController(
     IComplaintService complaintService,
     IApiRequestLogService logService,
-    ILogger<ComplaintsController> logger) : ControllerBase
+    ILogger<ComplaintsController> logger) : ApiBaseController(logService, logger)
 {
     // ─── GET /api/complaints/{referenceNumber} ───────────────────────────────
     [HttpGet("{referenceNumber}")]
@@ -83,16 +83,16 @@ public class ComplaintsController(
             }
 
             var request = new SubmitComplaintRequest(
-                ReporterName:  dto.ReporterName,
-                ReporterPhone: dto.ReporterPhone,
-                ReporterEmail: dto.ReporterEmail,
+                ReporterName:   dto.ReporterName,
+                ReporterPhone:  dto.ReporterPhone,
+                ReporterEmail:  dto.ReporterEmail,
                 ReporterIdCard: null,
-                CategoryId:    dto.CategoryId,
-                SubCategoryId: null,
+                CategoryId:     dto.CategoryId,
+                SubCategoryId:  null,
                 SubjectStation: dto.SubjectStation,
-                IncidentDate:  dto.IncidentDate.HasValue ? DateOnly.FromDateTime(dto.IncidentDate.Value) : null,
-                Description:   dto.Description,
-                Attachments:   Array.Empty<IFormFile>()
+                IncidentDate:   dto.IncidentDate.HasValue ? DateOnly.FromDateTime(dto.IncidentDate.Value) : null,
+                Description:    dto.Description,
+                Attachments:    Array.Empty<IFormFile>()
             );
 
             var complaint = await complaintService.SubmitAsync(request, ct);
@@ -186,7 +186,8 @@ public class ComplaintsController(
                 return NotFound(new { error = $"Complaint '{referenceNumber}' not found" });
             }
 
-            await complaintService.UpdateStatusAsync(complaint.Id, dto.NewStatus, 0, dto.Note, ct);
+            var apiKey = (HttpContext.Items["ApiKey"] as ApiKey)!;
+            await complaintService.UpdateStatusAsync(complaint.Id, dto.NewStatus, apiKey.CreatedById, dto.Note, ct);
             return Ok(new { referenceNumber, newStatus = dto.NewStatus, message = "อัปเดตสถานะเรียบร้อยแล้ว" });
         }
         catch (Exception ex)
@@ -262,22 +263,6 @@ public class ComplaintsController(
         {
             sw.Stop();
             await LogRequestAsync("GET", $"/api/complaints/{referenceNumber}/edoc-payload", null, statusCode, (int)sw.ElapsedMilliseconds);
-        }
-    }
-
-    // ─── Helpers ─────────────────────────────────────────────────────────────
-    private async Task LogRequestAsync(string method, string endpoint, string? query, int status, int ms)
-    {
-        try
-        {
-            var apiKey = HttpContext.Items["ApiKey"] as ApiKey;
-            if (apiKey != null)
-                await logService.LogAsync(apiKey.Id, method, endpoint, query,
-                    HttpContext.Connection.RemoteIpAddress?.ToString(), status, ms);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to log API request");
         }
     }
 

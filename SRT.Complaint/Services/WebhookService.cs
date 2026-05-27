@@ -10,6 +10,7 @@ namespace SRT.Complaint.Services;
 public class WebhookService(
     AppDbContext db,
     IHttpClientFactory httpClientFactory,
+    IMaskingService masking,
     ILogger<WebhookService> logger) : IWebhookService
 {
     private static readonly JsonSerializerOptions JsonOpts = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
@@ -60,7 +61,7 @@ public class WebhookService(
             ApiKeyId = apiKeyId,
             Name = name,
             TargetUrl = targetUrl,
-            SecretHash = rawSecret,
+            SecretHash = Convert.ToBase64String(masking.Encrypt(rawSecret)),
             Events = JsonSerializer.Serialize(events),
             IsActive = true,
             CreatedAt = DateTime.UtcNow
@@ -100,7 +101,8 @@ public class WebhookService(
     {
         try
         {
-            var signature = ComputeSignature(payloadJson, webhook.SecretHash);
+            var rawSecret = masking.Decrypt(Convert.FromBase64String(webhook.SecretHash));
+            var signature = ComputeSignature(payloadJson, rawSecret);
             var client = httpClientFactory.CreateClient("Webhook");
 
             using var req = new HttpRequestMessage(HttpMethod.Post, webhook.TargetUrl)

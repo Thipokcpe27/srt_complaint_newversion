@@ -214,10 +214,15 @@ DELETE /api/webhooks/{id}    ลบ Webhook
 ### Scopes
 | Scope | สิทธิ์ |
 |---|---|
-| `complaints:read` | อ่านข้อมูลเรื่องร้องเรียน |
-| `complaints:write` | สร้าง/แก้ไขเรื่องร้องเรียน |
-| `complaints:edoc` | ดึงข้อมูล e-Document |
-| `stats:read` | อ่านสถิติ |
+| `complaints:read` | GET ดูรายละเอียดเรื่องร้องเรียน |
+| `complaints:write` | POST สร้างเรื่องร้องเรียนใหม่ |
+| `complaints:status` | GET ดูสถานะเรื่องร้องเรียน |
+| `complaints:update` | PUT อัปเดตสถานะเรื่องร้องเรียน |
+| `complaints:edoc` | GET ดึงข้อมูล e-Document payload |
+| `stats:summary` | GET สถิติสรุปเรื่องร้องเรียน |
+| `stats:detailed` | GET สถิติละเอียดแยกตามประเภท/ลำดับความสำคัญ |
+| `corruption:stats` | GET สถิติเรื่องทุจริต |
+| `webhooks:manage` | GET/POST/DELETE จัดการ Webhook |
 
 ---
 

@@ -1,10 +1,7 @@
 #nullable enable
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SRT.Complaint.Data;
 using SRT.Complaint.Filters;
-using SRT.Complaint.Models;
 using SRT.Complaint.Services;
 
 namespace SRT.Complaint.Controllers.Api;
@@ -13,9 +10,9 @@ namespace SRT.Complaint.Controllers.Api;
 [Route("api/stats/corruption")]
 [ServiceFilter(typeof(ApiKeyAuthFilter))]
 public class CorruptionStatsController(
-    CorruptionDbContext corruptionDb,
+    ICorruptionStatsService corruptionStatsService,
     IApiRequestLogService logService,
-    ILogger<CorruptionStatsController> logger) : ControllerBase
+    ILogger<CorruptionStatsController> logger) : ApiBaseController(logService, logger)
 {
     // ─── GET /api/stats/corruption ────────────────────────────────────────────
     [HttpGet]
@@ -26,33 +23,22 @@ public class CorruptionStatsController(
         var sw = Stopwatch.StartNew();
         try
         {
-            var now   = DateTime.UtcNow;
-            var today = now.Date;
-
-            var total      = await corruptionDb.Reports.CountAsync(ct);
-            var pending    = await corruptionDb.Reports.CountAsync(r => r.Status == "Pending", ct);
-            var inProgress = await corruptionDb.Reports.CountAsync(r => r.Status == "InProgress", ct);
-            var underReview= await corruptionDb.Reports.CountAsync(r => r.Status == "UnderReview", ct);
-            var closed     = await corruptionDb.Reports.CountAsync(r => r.Status == "Closed", ct);
-            var rejected   = await corruptionDb.Reports.CountAsync(r => r.Status == "Rejected", ct);
-            var breached   = await corruptionDb.Reports.CountAsync(r => r.SlaBreached && r.Status != "Closed" && r.Status != "Rejected", ct);
-            var todayNew   = await corruptionDb.Reports.CountAsync(r => r.CreatedAt >= today, ct);
-
-            var bySubjectType = await corruptionDb.Reports
-                .GroupBy(r => r.SubjectType)
-                .Select(g => new { subjectType = g.Key, count = g.Count() })
-                .ToListAsync(ct);
-
+            var s = await corruptionStatsService.GetSummaryAsync(ct);
             return Ok(new
             {
-                asOf = now,
+                asOf = s.AsOf,
                 reports = new
                 {
-                    total, pending, inProgress, underReview, closed, rejected,
-                    slaBreached = breached,
-                    todayNew
+                    total       = s.Total,
+                    pending     = s.Pending,
+                    inProgress  = s.InProgress,
+                    underReview = s.UnderReview,
+                    closed      = s.Closed,
+                    rejected    = s.Rejected,
+                    slaBreached = s.SlaBreached,
+                    todayNew    = s.TodayNew
                 },
-                bySubjectType
+                bySubjectType = s.BySubjectType
             });
         }
         catch (Exception ex)
@@ -65,21 +51,6 @@ public class CorruptionStatsController(
         {
             sw.Stop();
             await LogRequestAsync("GET", "/api/stats/corruption", null, statusCode, (int)sw.ElapsedMilliseconds);
-        }
-    }
-
-    private async Task LogRequestAsync(string method, string endpoint, string? query, int status, int ms)
-    {
-        try
-        {
-            var apiKey = HttpContext.Items["ApiKey"] as ApiKey;
-            if (apiKey != null)
-                await logService.LogAsync(apiKey.Id, method, endpoint, query,
-                    HttpContext.Connection.RemoteIpAddress?.ToString(), status, ms);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to log API request");
         }
     }
 }

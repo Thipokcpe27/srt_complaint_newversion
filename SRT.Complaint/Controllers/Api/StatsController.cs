@@ -1,10 +1,7 @@
 #nullable enable
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using SRT.Complaint.Data;
 using SRT.Complaint.Filters;
-using SRT.Complaint.Models;
 using SRT.Complaint.Services;
 
 namespace SRT.Complaint.Controllers.Api;
@@ -13,9 +10,9 @@ namespace SRT.Complaint.Controllers.Api;
 [Route("api/stats")]
 [ServiceFilter(typeof(ApiKeyAuthFilter))]
 public class StatsController(
-    AppDbContext db,
+    IStatsService statsService,
     IApiRequestLogService logService,
-    ILogger<StatsController> logger) : ControllerBase
+    ILogger<StatsController> logger) : ApiBaseController(logService, logger)
 {
     // ─── GET /api/stats/summary ───────────────────────────────────────────────
     [HttpGet("summary")]
@@ -26,33 +23,20 @@ public class StatsController(
         var sw = Stopwatch.StartNew();
         try
         {
-            var now   = DateTime.UtcNow;
-            var today = now.Date;
-
-            var totalTask     = db.Complaints.CountAsync(ct);
-            var pendingTask   = db.Complaints.CountAsync(c => c.Status == "Pending", ct);
-            var inProgressTask= db.Complaints.CountAsync(c => c.Status == "InProgress", ct);
-            var resolvedTask  = db.Complaints.CountAsync(c => c.Status == "Resolved", ct);
-            var closedTask    = db.Complaints.CountAsync(c => c.Status == "Closed", ct);
-            var rejectedTask  = db.Complaints.CountAsync(c => c.Status == "Rejected", ct);
-            var breachedTask  = db.Complaints.CountAsync(c => c.SlaBreached && c.Status != "Closed" && c.Status != "Rejected", ct);
-            var todayTask     = db.Complaints.CountAsync(c => c.CreatedAt >= today, ct);
-
-            await Task.WhenAll(totalTask, pendingTask, inProgressTask, resolvedTask, closedTask, rejectedTask, breachedTask, todayTask);
-
+            var s = await statsService.GetSummaryAsync(ct);
             return Ok(new
             {
-                asOf = now,
+                asOf = s.AsOf,
                 complaints = new
                 {
-                    total      = totalTask.Result,
-                    pending    = pendingTask.Result,
-                    inProgress = inProgressTask.Result,
-                    resolved   = resolvedTask.Result,
-                    closed     = closedTask.Result,
-                    rejected   = rejectedTask.Result,
-                    slaBreached = breachedTask.Result,
-                    todayNew   = todayTask.Result
+                    total       = s.Total,
+                    pending     = s.Pending,
+                    inProgress  = s.InProgress,
+                    resolved    = s.Resolved,
+                    closed      = s.Closed,
+                    rejected    = s.Rejected,
+                    slaBreached = s.SlaBreached,
+                    todayNew    = s.TodayNew
                 }
             });
         }
@@ -78,40 +62,14 @@ public class StatsController(
         var sw = Stopwatch.StartNew();
         try
         {
-            var now   = DateTime.UtcNow;
-            var today = now.Date;
-
-            var byCategory = await db.Complaints
-                .GroupBy(c => c.Category.Name)
-                .Select(g => new { category = g.Key, total = g.Count(), open = g.Count(c => c.Status != "Closed" && c.Status != "Rejected") })
-                .ToListAsync(ct);
-
-            var byPriority = await db.Complaints
-                .GroupBy(c => c.Priority)
-                .Select(g => new { priority = g.Key, count = g.Count() })
-                .ToListAsync(ct);
-
-            var byStatus = await db.Complaints
-                .GroupBy(c => c.Status)
-                .Select(g => new { status = g.Key, count = g.Count() })
-                .ToListAsync(ct);
-
-            var closedComplaints = await db.Complaints
-                .Where(c => c.ClosedAt.HasValue)
-                .Select(c => new { c.CreatedAt, ClosedAt = c.ClosedAt!.Value })
-                .ToListAsync(ct);
-
-            var avgResolutionHours = closedComplaints.Any()
-                ? closedComplaints.Average(c => (c.ClosedAt - c.CreatedAt).TotalHours)
-                : 0.0;
-
+            var s = await statsService.GetDetailedAsync(ct);
             return Ok(new
             {
-                asOf = now,
-                byCategory,
-                byPriority,
-                byStatus,
-                averageResolutionHours = Math.Round(avgResolutionHours, 1)
+                asOf                   = s.AsOf,
+                byCategory             = s.ByCategory,
+                byPriority             = s.ByPriority,
+                byStatus               = s.ByStatus,
+                averageResolutionHours = s.AverageResolutionHours
             });
         }
         catch (Exception ex)
@@ -124,21 +82,6 @@ public class StatsController(
         {
             sw.Stop();
             await LogRequestAsync("GET", "/api/stats/detailed", null, statusCode, (int)sw.ElapsedMilliseconds);
-        }
-    }
-
-    private async Task LogRequestAsync(string method, string endpoint, string? query, int status, int ms)
-    {
-        try
-        {
-            var apiKey = HttpContext.Items["ApiKey"] as ApiKey;
-            if (apiKey != null)
-                await logService.LogAsync(apiKey.Id, method, endpoint, query,
-                    HttpContext.Connection.RemoteIpAddress?.ToString(), status, ms);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Failed to log API request");
         }
     }
 }

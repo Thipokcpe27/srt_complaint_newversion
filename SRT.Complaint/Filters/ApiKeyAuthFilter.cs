@@ -1,4 +1,6 @@
 #nullable enable
+using System.Collections.Concurrent;
+using System.Net;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Caching.Memory;
@@ -8,6 +10,8 @@ namespace SRT.Complaint.Filters;
 
 public class ApiKeyAuthFilter(IApiKeyService apiKeyService, IMemoryCache cache) : IAsyncActionFilter
 {
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> _semaphores = new();
+
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
         if (!context.HttpContext.Request.Headers.TryGetValue("X-API-Key", out var rawKey) ||
@@ -37,19 +41,28 @@ public class ApiKeyAuthFilter(IApiKeyService apiKeyService, IMemoryCache cache) 
             }
         }
 
-        // Rate limit — fixed window per minute
+        // Rate limit — fixed window per minute (atomic increment)
         var cacheKey = $"ratelimit:{apiKey.Id}:{DateTime.UtcNow:yyyyMMddHHmm}";
-        var count = cache.GetOrCreate(cacheKey, e =>
+        var sem = _semaphores.GetOrAdd(cacheKey, _ => new SemaphoreSlim(1, 1));
+        await sem.WaitAsync(context.HttpContext.RequestAborted);
+        try
         {
-            e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2);
-            return 0;
-        });
-        if (count >= apiKey.RateLimitPerMin)
-        {
-            context.Result = new ObjectResult(new { error = "Rate limit exceeded", retryAfter = "60s" }) { StatusCode = 429 };
-            return;
+            var count = cache.GetOrCreate(cacheKey, e =>
+            {
+                e.AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(2);
+                return 0;
+            });
+            if (count >= apiKey.RateLimitPerMin)
+            {
+                context.Result = new ObjectResult(new { error = "Rate limit exceeded", retryAfter = "60s" }) { StatusCode = 429 };
+                return;
+            }
+            cache.Set(cacheKey, count + 1, TimeSpan.FromMinutes(2));
         }
-        cache.Set(cacheKey, count + 1, TimeSpan.FromMinutes(2));
+        finally
+        {
+            sem.Release();
+        }
 
         context.HttpContext.Items["ApiKey"] = apiKey;
         await next();
@@ -57,14 +70,31 @@ public class ApiKeyAuthFilter(IApiKeyService apiKeyService, IMemoryCache cache) 
 
     private static bool MatchesIp(string clientIp, string allowedEntry)
     {
-        // Exact match
-        if (clientIp == allowedEntry) return true;
-        // CIDR prefix match (simplified: compare network portion before '/')
-        if (allowedEntry.Contains('/'))
+        if (!IPAddress.TryParse(clientIp, out var clientAddr)) return false;
+
+        if (!allowedEntry.Contains('/'))
+            return clientIp == allowedEntry;
+
+        var parts = allowedEntry.Split('/');
+        if (parts.Length != 2) return false;
+        if (!IPAddress.TryParse(parts[0], out var networkAddr)) return false;
+        if (!int.TryParse(parts[1], out var prefixLen)) return false;
+
+        var clientBytes  = clientAddr.GetAddressBytes();
+        var networkBytes = networkAddr.GetAddressBytes();
+        if (clientBytes.Length != networkBytes.Length) return false;
+
+        var fullBytes = prefixLen / 8;
+        var remBits   = prefixLen % 8;
+
+        for (var i = 0; i < fullBytes; i++)
+            if (clientBytes[i] != networkBytes[i]) return false;
+
+        if (remBits > 0)
         {
-            var networkPart = allowedEntry.Split('/')[0].TrimEnd('.');
-            return clientIp.StartsWith(networkPart);
+            var mask = (byte)(0xFF << (8 - remBits));
+            if ((clientBytes[fullBytes] & mask) != (networkBytes[fullBytes] & mask)) return false;
         }
-        return false;
+        return true;
     }
 }
