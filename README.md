@@ -1,0 +1,712 @@
+# ระบบรับเรื่องร้องเรียนออนไลน์ — การรถไฟแห่งประเทศไทย
+
+ระบบรับและจัดการเรื่องร้องเรียนออนไลน์ของการรถไฟแห่งประเทศไทย (รฟท.) รองรับทั้งเรื่องร้องเรียนทั่วไปและการแจ้งเบาะแสทุจริต/ประพฤติมิชอบ พร้อมระบบ API สำหรับเชื่อมต่อกับระบบภายนอก
+
+---
+
+## สารบัญ
+
+- [ภาพรวมระบบ](#ภาพรวมระบบ)
+- [Tech Stack](#tech-stack)
+- [โครงสร้างโปรเจกต์](#โครงสร้างโปรเจกต์)
+- [ฟีเจอร์หลัก](#ฟีเจอร์หลัก)
+- [หน้าทั้งหมดในระบบ](#หน้าทั้งหมดในระบบ)
+- [REST API](#rest-api)
+- [ความปลอดภัย](#ความปลอดภัย)
+- [การตั้งค่า (Configuration)](#การตั้งค่า-configuration)
+- [การพัฒนาบนเครื่องท้องถิ่น](#การพัฒนาบนเครื่องท้องถิ่น)
+- [การ Deploy บน IIS (Production)](#การ-deploy-บน-iis-production)
+- [การ Migrate ฐานข้อมูล](#การ-migrate-ฐานข้อมูล)
+- [บัญชีผู้ใช้เริ่มต้น](#บัญชีผู้ใช้เริ่มต้น)
+- [Roles & Permissions](#roles--permissions)
+
+---
+
+## ภาพรวมระบบ
+
+ระบบแบ่งการทำงานออกเป็น 2 Track ที่แยกกันโดยสมบูรณ์:
+
+| Track | คำอธิบาย | DB Schema |
+|---|---|---|
+| **เรื่องร้องเรียนทั่วไป** | ประชาชนยื่นเรื่อง ติดตาม เจ้าหน้าที่จัดการ | `dbo.*` |
+| **แจ้งเบาะแสทุจริต** | ช่องทางแยก ข้อมูลผู้แจ้งเข้ารหัส AES-256 | `corruption.*` |
+
+URL จริง: `https://www.railway.co.th/complaint/`
+Deploy: IIS Application บน GDCC
+
+---
+
+## Tech Stack
+
+| ส่วน | เทคโนโลยี | เวอร์ชัน |
+|---|---|---|
+| Framework | ASP.NET Core (Razor Pages) | .NET 9 |
+| Frontend | Tailwind CSS + HTMX | Tailwind 3 |
+| Database | SQL Server + EF Core + Dapper | EF Core 9 |
+| Auth (Web) | ASP.NET Core Cookie Auth | — |
+| Auth (API) | JWT Bearer | — |
+| PDF Export | QuestPDF | 2026.5.0 |
+| Email | MailKit | 4.16.0 |
+| Excel Export | ClosedXML | 0.105.0 |
+| Password Hash | BCrypt.Net-Next (cost=12) | 4.2.0 |
+| HTML Sanitize | HtmlSanitizer (Ganss.Xss) | 9.0.892 |
+| Logging | Serilog (Console + File) | 10.0.0 |
+| Bot Protection | Cloudflare Turnstile | — |
+
+---
+
+## โครงสร้างโปรเจกต์
+
+```
+srt_complaint_newversion/
+├── SRT.Complaint/
+│   ├── Controllers/
+│   │   └── Api/                    ← REST API endpoints
+│   │       ├── ComplaintsController.cs
+│   │       ├── StatsController.cs
+│   │       ├── CorruptionStatsController.cs
+│   │       └── WebhooksController.cs
+│   ├── Data/
+│   │   ├── AppDbContext.cs          ← EF Core context หลัก (dbo.*)
+│   │   ├── CorruptionDbContext.cs   ← EF Core context ทุจริต (corruption.*)
+│   │   └── Migrations/             ← EF Core migrations
+│   ├── Filters/
+│   │   ├── ApiKeyAuthFilter.cs     ← API Key authentication
+│   │   └── RequireScopeAttribute.cs
+│   ├── Fonts/
+│   │   ├── Sarabun-Regular.ttf     ← ฟอนต์ภาษาไทยสำหรับ PDF
+│   │   └── Sarabun-Bold.ttf
+│   ├── Models/                     ← EF Core entity models
+│   ├── Pages/
+│   │   ├── Public/                 ← หน้าสาธารณะ (ไม่ต้อง Login)
+│   │   ├── Staff/                  ← เจ้าหน้าที่ทั่วไป
+│   │   ├── Corruption/             ← เจ้าหน้าที่ทุจริต
+│   │   ├── Admin/                  ← Super Admin
+│   │   └── Shared/                 ← Layout, Partials
+│   ├── Services/                   ← Business logic ทั้งหมด
+│   ├── Validation/                 ← Custom validation attributes
+│   ├── appsettings.json
+│   ├── Program.cs
+│   ├── tailwind.config.js
+│   └── wwwroot/
+│       ├── css/
+│       ├── js/
+│       └── images/
+└── README.md
+```
+
+---
+
+## ฟีเจอร์หลัก
+
+### ประชาชน (Public)
+- ยื่นเรื่องร้องเรียนทั่วไป พร้อมแนบไฟล์สูงสุด 5 ไฟล์ (JPG, PNG, PDF, DOC, DOCX, ≤10 MB/ไฟล์)
+- แจ้งเบาะแสทุจริต — ข้อมูลผู้แจ้งเข้ารหัส AES-256 ทันทีก่อนบันทึก
+- ติดตามสถานะเรื่องด้วยเลขอ้างอิง + เบอร์โทร 4 หลักท้าย
+- รับอีเมล/SMS แจ้งผลทุกขั้นตอน
+
+### เจ้าหน้าที่ (Staff)
+- Dashboard แสดง Queue เรื่องที่รอดำเนินการ
+- รับเรื่อง โอนเรื่อง อัปเดตสถานะ เพิ่มบันทึกภายใน
+- Export PDF รายงานเรื่องร้องเรียน
+- ดู Workload ภาพรวมการทำงาน
+
+### เจ้าหน้าที่ทุจริต (Corruption Officer)
+- Dashboard และ Queue แยกจากเรื่องทั่วไปสมบูรณ์
+- เข้าถึงข้อมูลผู้แจ้งได้เฉพาะเมื่อมีเหตุผลอันสมควร (มีการบันทึก)
+
+### Super Admin
+- จัดการผู้ใช้งานระบบ (สร้าง รีเซ็ตรหัสผ่าน เปิด/ปิด)
+- จัดการประเภทเรื่องร้องเรียนและหัวข้อย่อย
+- กำหนด SLA (Service Level Agreement) แต่ละประเภทเรื่อง
+- จัดการ API Keys สำหรับระบบภายนอก
+- กำหนด Webhook endpoints
+- แก้ไขเนื้อหาหน้าเว็บ (Terms, Content Blocks)
+- ดู Audit Log และ API Request Log
+
+### API (External)
+- REST API พร้อม API Key authentication
+- รองรับ Webhook แจ้งเตือน external systems เมื่อสถานะเปลี่ยน
+- Rate limiting แบบ Sliding Window
+
+---
+
+## หน้าทั้งหมดในระบบ
+
+### Public (ไม่ต้อง Login)
+| URL | คำอธิบาย |
+|---|---|
+| `/` | หน้าแรก |
+| `/Public/Submit` | ยื่นเรื่องร้องเรียนทั่วไป |
+| `/Public/Track` | ติดตามเรื่องร้องเรียน |
+| `/Public/SubmitCorruption` | แจ้งเบาะแสทุจริต |
+| `/Public/CorruptionSubmitted` | ยืนยันการแจ้งเบาะแสสำเร็จ |
+
+### Staff (ต้อง Login — Role: GeneralOfficer, SuperAdmin)
+| URL | คำอธิบาย |
+|---|---|
+| `/Staff/Login` | เข้าสู่ระบบ |
+| `/Staff/Dashboard` | หน้าแรกเจ้าหน้าที่ |
+| `/Staff/Queue` | คิวเรื่องร้องเรียน |
+| `/Staff/CaseDetail?id={id}` | รายละเอียดเรื่อง |
+| `/Staff/CreateComplaint` | สร้างเรื่องแทนประชาชน |
+| `/Staff/Workload` | ภาพรวม Workload |
+| `/Staff/ChangePassword` | เปลี่ยนรหัสผ่าน |
+
+### Corruption (ต้อง Login — Role: CorruptionOfficer, SuperAdmin)
+| URL | คำอธิบาย |
+|---|---|
+| `/Corruption/Dashboard` | Dashboard ทุจริต |
+| `/Corruption/Queue` | คิวเรื่องทุจริต |
+| `/Corruption/CaseDetail?id={id}` | รายละเอียดเรื่องทุจริต |
+
+### Admin (ต้อง Login — Role: SuperAdmin)
+| URL | คำอธิบาย |
+|---|---|
+| `/Admin/Dashboard` | Dashboard ภาพรวมทั้งระบบ |
+| `/Admin/Users` | จัดการผู้ใช้งาน |
+| `/Admin/Categories` | จัดการประเภทเรื่อง |
+| `/Admin/SlaSettings` | กำหนด SLA |
+| `/Admin/Terms` | แก้ไขข้อตกลงและเงื่อนไข |
+| `/Admin/HomeContent` | แก้ไขเนื้อหาหน้าแรก |
+| `/Admin/Notifications` | ตั้งค่าการแจ้งเตือน |
+| `/Admin/ApiKeys` | จัดการ API Keys |
+| `/Admin/ApiKeyUsage` | ดู API Usage Log |
+| `/Admin/Webhooks` | จัดการ Webhook |
+| `/Admin/Reports` | รายงานสถิติ |
+| `/Admin/AuditLog` | บันทึกการใช้งาน |
+
+---
+
+## REST API
+
+### Authentication
+ทุก endpoint ต้องส่ง Header:
+```
+X-API-Key: {your-api-key}
+```
+
+### Endpoints
+
+#### Complaints
+```
+POST   /api/complaints                         สร้างเรื่องร้องเรียนใหม่
+GET    /api/complaints/{referenceNumber}        ดูรายละเอียดเรื่อง
+GET    /api/complaints/{referenceNumber}/status ดูสถานะเรื่อง
+PUT    /api/complaints/{referenceNumber}/status อัปเดตสถานะ
+GET    /api/complaints/{referenceNumber}/edoc-payload ดึงข้อมูลสำหรับ e-Document
+```
+
+#### Statistics
+```
+GET    /api/stats/summary    สรุปสถิติเรื่องร้องเรียนทั่วไป
+GET    /api/stats/detailed   สถิติละเอียด
+GET    /api/stats/corruption สถิติเรื่องทุจริต
+```
+
+#### Webhooks
+```
+GET    /api/webhooks         รายการ Webhook ที่ลงทะเบียน
+POST   /api/webhooks         ลงทะเบียน Webhook ใหม่
+DELETE /api/webhooks/{id}    ลบ Webhook
+```
+
+### Scopes
+| Scope | สิทธิ์ |
+|---|---|
+| `complaints:read` | อ่านข้อมูลเรื่องร้องเรียน |
+| `complaints:write` | สร้าง/แก้ไขเรื่องร้องเรียน |
+| `complaints:edoc` | ดึงข้อมูล e-Document |
+| `stats:read` | อ่านสถิติ |
+
+---
+
+## ความปลอดภัย
+
+| มาตรการ | รายละเอียด |
+|---|---|
+| Password Hashing | BCrypt cost factor 12 |
+| Encryption | AES-256-CBC สำหรับข้อมูลผู้แจ้งทุจริต |
+| Session Cookie | HttpOnly + Secure + SameSite=Strict |
+| CSRF | Anti-forgery token ทุก Form |
+| XSS Prevention | HtmlSanitizer 9.0.892 ก่อนบันทึก HTML ลง DB |
+| Bot Protection | Cloudflare Turnstile บนทุก Form สำคัญ |
+| Rate Limiting | Submit: 5 ครั้ง/ชม., Login: 10 ครั้ง/15 นาที, Track: 10 ครั้ง/15 นาที |
+| IDOR Protection | ตรวจสิทธิ์การแก้ไขเรื่องทุก handler |
+| File Upload | ตรวจ extension whitelist + ขนาดไม่เกิน 10 MB |
+| API Key | Hash ก่อนเก็บ + ตรวจ IP Whitelist + Scope |
+| HSTS | เปิดใช้งานใน Production |
+
+---
+
+## การตั้งค่า (Configuration)
+
+ไฟล์ `appsettings.json` (สำหรับ Development):
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Server=.\\SQLEXPRESS;Database=SRT_Complaint;Trusted_Connection=True;TrustServerCertificate=True"
+  },
+  "Encryption": {
+    "Key": "<Base64 ของ random 32 bytes — ดูวิธีสร้างด้านล่าง>"
+  },
+  "Jwt": {
+    "Secret": "<random string ยาว 64+ ตัวอักษร>",
+    "Issuer": "railway.co.th",
+    "ExpiryDays": 365
+  },
+  "Notifications": {
+    "SmsGatewayUrl": "https://sms-gateway.example.com/send",
+    "SmsApiKey": "<SMS API Key>",
+    "SmtpHost": "smtp.example.com",
+    "SmtpPort": 587,
+    "SmtpUser": "noreply@railway.co.th",
+    "SmtpPassword": "<SMTP Password>"
+  },
+  "FileUpload": {
+    "StoragePath": "C:\\SRT_Uploads\\Complaints\\"
+  },
+  "Turnstile": {
+    "SiteKey": "<Cloudflare Site Key — เว้นว่างเพื่อข้ามใน dev>",
+    "SecretKey": "<Cloudflare Secret Key — เว้นว่างเพื่อข้ามใน dev>"
+  }
+}
+```
+
+### สร้าง Encryption Key
+
+```powershell
+# PowerShell — สร้าง AES-256 key (32 bytes → Base64)
+[Convert]::ToBase64String((1..32 | % { [byte](Get-Random -Max 256) }))
+```
+
+### ขอ Cloudflare Turnstile Keys
+
+1. ไปที่ [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Turnstile**
+2. คลิก **Add Site** → กรอก Domain: `www.railway.co.th`
+3. เลือก Widget Type: **Managed** (แนะนำ)
+4. คัดลอก **Site Key** และ **Secret Key**
+
+---
+
+## การพัฒนาบนเครื่องท้องถิ่น
+
+### สิ่งที่ต้องติดตั้งก่อน
+
+| ซอฟต์แวร์ | เวอร์ชันขั้นต่ำ | ดาวน์โหลด |
+|---|---|---|
+| .NET SDK | 9.0 | https://dotnet.microsoft.com/download |
+| Node.js | 18 LTS | https://nodejs.org/ |
+| SQL Server | 2019 / Express | https://www.microsoft.com/sql-server |
+| SQL Server Management Studio | 20+ (แนะนำ) | https://aka.ms/ssms |
+
+### ขั้นตอน
+
+```bash
+# 1. Clone repository
+git clone https://github.com/Thipokcpe27/srt_complaint_newversion.git
+cd srt_complaint_newversion
+
+# 2. กำหนด Connection String ใน appsettings.json
+#    แก้ Server= ให้ตรงกับเครื่องตัวเอง
+
+# 3. Restore dependencies (.NET + npm)
+dotnet restore
+cd SRT.Complaint && npm install && cd ..
+
+# 4. Migrate ฐานข้อมูล
+dotnet ef database update --project SRT.Complaint --context AppDbContext
+
+# 5. Run
+dotnet run --project SRT.Complaint
+```
+
+แอปจะรันที่ `https://localhost:5001` (หรือ port ที่ระบุใน `launchSettings.json`)
+
+> **หมายเหตุ:** บัญชี SuperAdmin เริ่มต้นจะถูกสร้างอัตโนมัติเมื่อรันครั้งแรก  
+> EmployeeCode: `0000001` / Password: `Admin@1234` — **ต้องเปลี่ยนรหัสผ่านทันที**
+
+---
+
+## การ Deploy บน IIS (Production)
+
+### ข้อกำหนดเซิร์ฟเวอร์
+
+| รายการ | ข้อกำหนด |
+|---|---|
+| OS | Windows Server 2019 / 2022 |
+| Web Server | IIS 10+ |
+| Runtime | .NET 9 Hosting Bundle |
+| Database | SQL Server 2019+ |
+| RAM | 4 GB ขั้นต่ำ (แนะนำ 8 GB) |
+| Disk | 20 GB ขั้นต่ำ |
+
+---
+
+### ขั้นที่ 1 — ติดตั้ง .NET 9 Hosting Bundle บนเซิร์ฟเวอร์
+
+1. ดาวน์โหลด **.NET 9 Hosting Bundle** จาก https://dotnet.microsoft.com/download/dotnet/9.0
+   - เลือกไฟล์ชื่อ `dotnet-hosting-9.x.x-win.exe`
+2. รันติดตั้งในฐานะ Administrator
+3. Restart IIS หลังติดตั้ง:
+   ```cmd
+   net stop was /y
+   net start w3svc
+   ```
+4. ตรวจสอบ:
+   ```cmd
+   dotnet --info
+   ```
+
+---
+
+### ขั้นที่ 2 — เปิดใช้งาน IIS Features
+
+เปิด **Server Manager** → **Add Roles and Features** → เลือก:
+
+- **Web Server (IIS)**
+  - Common HTTP Features: Static Content, Default Document, HTTP Errors
+  - Performance: Static Content Compression, Dynamic Content Compression
+  - Security: Request Filtering, Windows Authentication (ถ้าต้องการ)
+  - Application Development: ASP.NET 4.8, ISAPI Extensions, ISAPI Filters
+- **Management Tools**: IIS Management Console
+
+หรือใช้ PowerShell (Run as Administrator):
+```powershell
+Install-WindowsFeature -Name Web-Server, Web-Common-Http, Web-Static-Content,
+  Web-Default-Doc, Web-Http-Errors, Web-Performance, Web-Stat-Compression,
+  Web-Dyn-Compression, Web-Security, Web-Filtering, Web-App-Dev,
+  Web-Asp-Net45, Web-ISAPI-Ext, Web-ISAPI-Filter, Web-Mgmt-Tools,
+  Web-Mgmt-Console -IncludeManagementTools
+```
+
+---
+
+### ขั้นที่ 3 — Publish แอปพลิเคชัน
+
+บนเครื่อง Developer (หรือ CI/CD):
+
+```bash
+dotnet publish SRT.Complaint/SRT.Complaint.csproj \
+  -c Release \
+  -r win-x64 \
+  --self-contained false \
+  -o ./publish
+```
+
+ผลลัพธ์จะอยู่ที่โฟลเดอร์ `publish/`
+
+---
+
+### ขั้นที่ 4 — สร้าง Application Pool
+
+1. เปิด **IIS Manager**
+2. คลิกขวาที่ **Application Pools** → **Add Application Pool**
+3. กำหนดค่า:
+   - **Name:** `SRTComplaint`
+   - **.NET CLR version:** `No Managed Code`
+   - **Managed pipeline mode:** `Integrated`
+4. คลิกขวา Application Pool ที่สร้าง → **Advanced Settings**:
+   - **Identity:** `ApplicationPoolIdentity` (หรือ service account ที่กำหนด)
+   - **Start Mode:** `AlwaysRunning`
+   - **Idle Time-out:** `0` (ไม่หยุด)
+   - **Regular Time Interval (minutes):** `1440` (Recycle วันละครั้ง)
+
+---
+
+### ขั้นที่ 5 — สร้าง Website / Application
+
+**ตัวเลือก A — Deploy เป็น Sub-Application (แนะนำสำหรับ `/complaint/`)**
+
+1. ใน IIS Manager → 展開 **Sites** → คลิกขวา `Default Web Site` (หรือ site หลัก) → **Add Application**
+2. กำหนดค่า:
+   - **Alias:** `complaint`
+   - **Application pool:** `SRTComplaint`
+   - **Physical path:** `C:\inetpub\wwwroot\complaint`
+3. คัดลอกไฟล์จาก `publish/` ไปที่ `C:\inetpub\wwwroot\complaint\`
+
+**ตัวเลือก B — Deploy เป็น Website แยก**
+
+1. คลิกขวา **Sites** → **Add Website**
+2. กำหนดค่า:
+   - **Site name:** `SRTComplaint`
+   - **Application pool:** `SRTComplaint`
+   - **Physical path:** `C:\inetpub\wwwroot\complaint`
+   - **Port:** `443` (HTTPS)
+   - **Host name:** `www.railway.co.th`
+
+---
+
+### ขั้นที่ 6 — กำหนดสิทธิ์โฟลเดอร์
+
+```powershell
+# 1. สิทธิ์อ่านโฟลเดอร์แอป
+icacls "C:\inetpub\wwwroot\complaint" /grant "IIS AppPool\SRTComplaint:(OI)(CI)RX" /T
+
+# 2. สร้างและกำหนดสิทธิ์โฟลเดอร์ Upload
+New-Item -ItemType Directory -Force -Path "C:\SRT_Uploads\Complaints"
+icacls "C:\SRT_Uploads\Complaints" /grant "IIS AppPool\SRTComplaint:(OI)(CI)M" /T
+
+# 3. สร้างและกำหนดสิทธิ์โฟลเดอร์ Logs
+New-Item -ItemType Directory -Force -Path "C:\inetpub\wwwroot\complaint\logs"
+icacls "C:\inetpub\wwwroot\complaint\logs" /grant "IIS AppPool\SRTComplaint:(OI)(CI)M" /T
+```
+
+---
+
+### ขั้นที่ 7 — กำหนด Environment Variables (Secrets)
+
+**ห้ามใส่ค่า Secret ใน appsettings.json ที่ deploy** — ให้ใช้ Environment Variables แทน
+
+**วิธีที่ 1: ผ่าน IIS Manager (แนะนำ)**
+
+1. IIS Manager → เลือก Application `complaint`
+2. ดับเบิลคลิก **Configuration Editor**
+3. ไปที่ `system.webServer/aspNetCore`
+4. คลิก `environmentVariables` → `[...]`
+5. เพิ่มตัวแปรต่อไปนี้ทีละรายการ:
+
+| Name | Value | หมายเหตุ |
+|---|---|---|
+| `ASPNETCORE_ENVIRONMENT` | `Production` | บังคับ |
+| `ConnectionStrings__DefaultConnection` | `Server=...;Database=SRT_Complaint;...` | Connection string จริง |
+| `Encryption__Key` | `<Base64 32 bytes>` | สร้างด้วย PowerShell |
+| `Jwt__Secret` | `<random 64+ chars>` | |
+| `Notifications__SmtpHost` | `smtp.railway.co.th` | |
+| `Notifications__SmtpUser` | `noreply@railway.co.th` | |
+| `Notifications__SmtpPassword` | `<SMTP password>` | |
+| `Notifications__SmsGatewayUrl` | `https://sms.gdcc.go.th/send` | |
+| `Notifications__SmsApiKey` | `<SMS API Key>` | |
+| `Turnstile__SiteKey` | `<Cloudflare Site Key>` | |
+| `Turnstile__SecretKey` | `<Cloudflare Secret Key>` | |
+| `FileUpload__StoragePath` | `C:\SRT_Uploads\Complaints\` | |
+
+> ใช้ `__` (สองขีดล่าง) แทน `:` ใน key name เสมอ
+
+**วิธีที่ 2: แก้ไข applicationHost.config โดยตรง**
+
+ไฟล์อยู่ที่ `C:\Windows\System32\inetsrv\config\applicationHost.config`
+```xml
+<system.webServer>
+  <aspNetCore processPath="dotnet" arguments=".\SRT.Complaint.dll" stdoutLogEnabled="true">
+    <environmentVariables>
+      <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />
+      <environmentVariable name="ConnectionStrings__DefaultConnection" value="Server=...;..." />
+      <!-- เพิ่มตัวแปรอื่นๆ ที่นี่ -->
+    </environmentVariables>
+  </aspNetCore>
+</system.webServer>
+```
+
+---
+
+### ขั้นที่ 8 — Migrate ฐานข้อมูล
+
+รันบนเซิร์ฟเวอร์ production หรือรันจากเครื่อง developer โดยชี้ Connection String ไปยัง production DB:
+
+```bash
+# ตั้ง Connection String ชั่วคราว
+$env:ConnectionStrings__DefaultConnection = "Server=prod-db;Database=SRT_Complaint;..."
+
+# Migrate
+dotnet ef database update --project SRT.Complaint --context AppDbContext
+```
+
+หรือ Migrate ด้วย SQL Script:
+```bash
+dotnet ef migrations script --project SRT.Complaint --context AppDbContext -o migrate.sql
+# นำ migrate.sql ไป run บน SQL Server Management Studio
+```
+
+---
+
+### ขั้นที่ 9 — ตั้งค่า HTTPS (SSL Certificate)
+
+**กรณีมี Certificate แล้ว (PFX file):**
+
+1. IIS Manager → **Server Certificates** → **Import**
+2. เลือกไฟล์ `.pfx` และกรอก password
+3. ใน Site → **Bindings** → Add:
+   - Type: `https`
+   - Port: `443`
+   - SSL certificate: เลือก cert ที่ import
+   - Host name: `www.railway.co.th`
+
+**เพิ่ม HTTP → HTTPS Redirect:**
+
+1. เพิ่ม Binding HTTP port 80
+2. IIS Manager → **URL Rewrite** → Add Rule:
+   - Rule type: **Blank rule**
+   - Match URL: `.*`
+   - Conditions: Add → `{HTTPS}` / Is Not Equal To / `on`
+   - Action: Redirect → `https://{HTTP_HOST}{REQUEST_URI}` (301)
+
+---
+
+### ขั้นที่ 10 — ตรวจสอบ web.config
+
+ไฟล์ `web.config` จะถูกสร้างอัตโนมัติเมื่อ `dotnet publish` ตรวจสอบว่ามีเนื้อหาประมาณนี้:
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<configuration>
+  <location path="." inheritInChildApplications="false">
+    <system.webServer>
+      <handlers>
+        <add name="aspNetCore" path="*" verb="*" modules="AspNetCoreModuleV2" resourceType="Unspecified" />
+      </handlers>
+      <aspNetCore processPath="dotnet"
+                  arguments=".\SRT.Complaint.dll"
+                  stdoutLogEnabled="false"
+                  stdoutLogFile=".\logs\stdout"
+                  hostingModel="inprocess">
+        <environmentVariables>
+          <environmentVariable name="ASPNETCORE_ENVIRONMENT" value="Production" />
+        </environmentVariables>
+      </aspNetCore>
+    </system.webServer>
+  </location>
+</configuration>
+```
+
+> **ข้อสำคัญ:** อย่าใส่ Secret ในไฟล์ `web.config` โดยตรง ให้ใช้ Environment Variables ผ่าน IIS Manager แทน
+
+---
+
+### ขั้นที่ 11 — ตั้งค่า Request Size Limit (สำหรับ File Upload)
+
+เพิ่มใน `web.config` หรือผ่าน IIS Manager:
+
+```xml
+<system.webServer>
+  <security>
+    <requestFiltering>
+      <!-- อนุญาต upload สูงสุด 52 MB (5 ไฟล์ × 10 MB + overhead) -->
+      <requestLimits maxAllowedContentLength="54525952" />
+    </requestFiltering>
+  </security>
+</system.webServer>
+```
+
+---
+
+### ขั้นที่ 12 — ทดสอบหลัง Deploy
+
+```
+[ ] เปิดหน้า https://www.railway.co.th/complaint/ — โหลดได้ปกติ
+[ ] ทดสอบยื่นเรื่องร้องเรียนทั่วไป — รับเลขอ้างอิง
+[ ] ทดสอบติดตามเรื่อง — ดูสถานะได้
+[ ] ทดสอบยื่นเรื่องทุจริต — ข้อมูลถูก mask ในหน้ารายการ
+[ ] Login เจ้าหน้าที่ด้วย EmployeeCode 0000001 — ระบบบังคับเปลี่ยนรหัสผ่าน
+[ ] เปลี่ยนรหัสผ่าน Admin — Login ใหม่ได้
+[ ] ทดสอบ HTTPS redirect — HTTP → HTTPS อัตโนมัติ
+[ ] ตรวจสอบ Logs ที่ C:\inetpub\wwwroot\complaint\logs\
+[ ] ตรวจสอบ Turnstile Widget แสดงบนหน้า Submit และ Login
+```
+
+---
+
+### แก้ไขปัญหาที่พบบ่อย
+
+**แอปไม่ start / 502 Bad Gateway**
+```powershell
+# ดู stdout log
+cat "C:\inetpub\wwwroot\complaint\logs\stdout*.log" | Select-Object -Last 50
+
+# ตรวจสอบ .NET version
+dotnet --list-runtimes
+
+# ตรวจสอบ AspNetCoreModule ติดตั้งหรือยัง
+Get-WebConfiguration "system.webServer/globalModules" | Where-Object { $_.name -like "*AspNetCore*" }
+```
+
+**500.19 — web.config ผิดพลาด**
+- ตรวจสอบ syntax ของ `web.config`
+- ตรวจสอบ IIS URL Rewrite Module ติดตั้งหรือยัง
+
+**ไม่สามารถเขียนไฟล์ / 500 ขณะ Upload**
+```powershell
+# ตรวจสอบสิทธิ์โฟลเดอร์ Upload
+icacls "C:\SRT_Uploads\Complaints"
+# ต้องมี IIS AppPool\SRTComplaint (M) — Modify
+```
+
+**ฐานข้อมูลต่อไม่ได้**
+- ตรวจสอบ `ConnectionStrings__DefaultConnection` ใน Environment Variables
+- ตรวจสอบ SQL Server Firewall อนุญาต port 1433
+- ตรวจสอบว่า Application Pool Identity มีสิทธิ์เข้าถึง SQL Server
+
+**Turnstile ไม่แสดง / ผ่านไม่ได้**
+- ตรวจสอบ `Turnstile__SiteKey` ตั้งค่าถูกต้อง
+- ตรวจสอบ domain ใน Cloudflare Dashboard ตรงกับ domain จริง
+- ตรวจสอบ `Turnstile__SecretKey` ถูกต้อง (ใช้สำหรับ server-side verify)
+
+---
+
+## การ Migrate ฐานข้อมูล
+
+### สร้าง Migration ใหม่
+```bash
+dotnet ef migrations add MigrationName \
+  --project SRT.Complaint \
+  --context AppDbContext
+```
+
+### Apply Migration
+```bash
+dotnet ef database update \
+  --project SRT.Complaint \
+  --context AppDbContext
+```
+
+### ย้อนกลับ Migration
+```bash
+dotnet ef database update PreviousMigrationName \
+  --project SRT.Complaint \
+  --context AppDbContext
+```
+
+### รายการ Migrations ทั้งหมด
+| Migration | รายละเอียด |
+|---|---|
+| `AddMustChangePassword` | เพิ่มฟิลด์บังคับเปลี่ยนรหัสผ่านครั้งแรก |
+| `AddTempPasswordExpiry` | เพิ่มวันหมดอายุรหัสผ่านชั่วคราว |
+| `AddTempPasswordEncrypted` | เพิ่มการเก็บรหัสผ่านชั่วคราวแบบ encrypted |
+| `AddSubCategories` | เพิ่มตารางหัวข้อย่อยเรื่องร้องเรียน |
+| `MakeNoteAuthorNullable` | แก้ไข author ของ Note เป็น nullable |
+| `AddComplaintSeq` | เพิ่ม sequence สำหรับเลขอ้างอิงเรื่องร้องเรียน |
+| `AddReporterIdCard` | เพิ่มฟิลด์เลขบัตรประชาชนผู้แจ้ง |
+| `AddComplaintTerms` | เพิ่มตารางข้อตกลงและเงื่อนไข |
+| `AddContentBlocks` | เพิ่มตารางเนื้อหาหน้าแรก |
+| `Corruption/AddCorruptionSeq` | เพิ่ม sequence สำหรับเรื่องทุจริต |
+
+---
+
+## บัญชีผู้ใช้เริ่มต้น
+
+สร้างอัตโนมัติเมื่อรันครั้งแรก (ถ้าไม่มี SuperAdmin ในระบบ):
+
+| รายการ | ค่า |
+|---|---|
+| Employee Code | `0000001` |
+| Password | `Admin@1234` |
+| Role | `SuperAdmin` |
+
+> **สำคัญมาก:** เปลี่ยนรหัสผ่านทันทีหลัง login ครั้งแรก ระบบจะบังคับเปลี่ยนอัตโนมัติ
+
+---
+
+## Roles & Permissions
+
+| Role | สิทธิ์ |
+|---|---|
+| `GeneralOfficer` | จัดการเรื่องร้องเรียนทั่วไปที่รับผิดชอบ |
+| `CorruptionOfficer` | จัดการเรื่องทุจริต (แยกสมบูรณ์จากทั่วไป) |
+| `SuperAdmin` | สิทธิ์ทั้งหมด + จัดการผู้ใช้งาน, ตั้งค่าระบบ, API Keys |
+
+---
+
+## License
+
+ระบบนี้พัฒนาสำหรับการรถไฟแห่งประเทศไทย (รฟท.) เท่านั้น
