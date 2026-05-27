@@ -1,0 +1,216 @@
+@page
+@model SRT.Complaint.Pages.Admin.DashboardModel
+@{
+    ViewData["Title"] = "ภาพรวมระบบ";
+}
+
+<!-- Page header -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">ภาพรวมระบบ</h1>
+        <p class="page-subtitle">สถิติและสถานะทั้งหมดของระบบ</p>
+    </div>
+    <a asp-page="/Admin/Reports" class="btn-secondary btn-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+        รายงาน
+    </a>
+</div>
+
+<!-- Stat Grid Row 1 -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+
+    <div class="stat-card">
+        <div class="flex items-center justify-between">
+            <p class="stat-label">เจ้าหน้าที่</p>
+            <div class="stat-card-icon bg-srt-navy-50">
+                <svg class="w-5 h-5 text-srt-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
+                </svg>
+            </div>
+        </div>
+        <p class="stat-value text-srt-navy">@Model.TotalStaff</p>
+        <p class="stat-meta">
+            ใช้งานได้ <strong class="text-emerald-600">@Model.ActiveStaff</strong> คน
+        </p>
+    </div>
+
+    <div class="stat-card">
+        <div class="flex items-center justify-between">
+            <p class="stat-label">เรื่องทั่วไป</p>
+            <div class="stat-card-icon bg-blue-50">
+                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+            </div>
+        </div>
+        <p class="stat-value text-srt-navy">@Model.TotalComplaints</p>
+        <p class="stat-meta">
+            ค้างอยู่ <strong class="text-amber-600">@Model.OpenComplaints</strong> เรื่อง
+        </p>
+    </div>
+
+    <div class="stat-card @(Model.SlaBreachedOpen > 0 ? "border-red-200 bg-red-50" : "")">
+        <div class="flex items-center justify-between">
+            <p class="stat-label @(Model.SlaBreachedOpen > 0 ? "text-red-600" : "")">เกิน SLA</p>
+            <div class="stat-card-icon @(Model.SlaBreachedOpen > 0 ? "bg-red-100" : "bg-gray-100")">
+                <svg class="w-5 h-5 @(Model.SlaBreachedOpen > 0 ? "text-red-600" : "text-gray-500")"
+                     fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+        </div>
+        <p class="stat-value text-red-600">@Model.SlaBreachedOpen</p>
+        @if (Model.SlaBreachedOpen > 0)
+        {
+            <p class="stat-meta text-red-500 font-semibold">ต้องดำเนินการด่วน</p>
+        }
+        else
+        {
+            <p class="stat-meta text-emerald-500">สถานะปกติ</p>
+        }
+    </div>
+
+    <div class="stat-card border-amber-100">
+        <div class="flex items-center justify-between">
+            <p class="stat-label text-amber-600">เรื่องทุจริต</p>
+            <div class="stat-card-icon bg-amber-50">
+                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+            </div>
+        </div>
+        <p class="stat-value text-amber-700">@Model.TotalCorruption</p>
+        <p class="stat-meta">
+            ค้างอยู่ <strong class="text-amber-600">@Model.OpenCorruption</strong> เรื่อง
+        </p>
+    </div>
+
+</div>
+
+<!-- Row 2 -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
+
+    <div class="stat-card">
+        <div class="flex items-center justify-between">
+            <p class="stat-label">API Keys</p>
+            <div class="stat-card-icon bg-purple-50">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+            </div>
+        </div>
+        <p class="stat-value text-srt-navy">@Model.ActiveApiKeys</p>
+        <a asp-page="/Admin/ApiKeys" class="stat-meta text-srt-navy hover:underline font-medium">
+            จัดการ API Keys →
+        </a>
+    </div>
+
+    <div class="stat-card">
+        <div class="flex items-center justify-between">
+            <p class="stat-label">Audit Log</p>
+            <div class="stat-card-icon bg-slate-50">
+                <svg class="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+            </div>
+        </div>
+        <p class="stat-value text-srt-navy">@Model.TotalAuditLogs.ToString("N0")</p>
+        <a asp-page="/Admin/AuditLog" class="stat-meta text-srt-navy hover:underline font-medium">
+            ดู Audit Log →
+        </a>
+    </div>
+
+    <!-- Quick links -->
+    <div class="card p-5 flex flex-col gap-1">
+        <p class="stat-label mb-2">ลิงก์ด่วน</p>
+        @foreach (var link in new[] {
+            (Label: "จัดการเจ้าหน้าที่", Url: "/Admin/Users"),
+            (Label: "หมวดหมู่",           Url: "/Admin/Categories"),
+            (Label: "SLA Settings",       Url: "/Admin/SlaSettings"),
+            (Label: "รายงาน",             Url: "/Admin/Reports"),
+        })
+        {
+            <a href="@link.Url"
+               class="flex items-center gap-2 text-sm text-srt-navy hover:text-srt-navy-light transition py-1.5
+                      border-b border-gray-100 last:border-0 font-medium group">
+                <svg class="w-3.5 h-3.5 text-gray-400 group-hover:text-srt-navy transition" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                @link.Label
+            </a>
+        }
+    </div>
+
+</div>
+
+<!-- Recent Audit Log -->
+<div class="card overflow-hidden">
+    <div class="card-header">
+        <h2 class="text-sm font-bold text-gray-900">Audit Log ล่าสุด</h2>
+        <a asp-page="/Admin/AuditLog" class="btn-secondary btn-sm">ดูทั้งหมด</a>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="data-table w-full">
+            <thead>
+                <tr>
+                    <th>เวลา</th>
+                    <th>Action</th>
+                    <th>ผู้กระทำ</th>
+                    <th>Entity</th>
+                    <th>IP Address</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var log in Model.RecentLogs)
+                {
+                    <tr>
+                        <td class="text-gray-400 text-xs whitespace-nowrap font-mono">
+                            @log.CreatedAt.ToLocalTime().ToString("dd/MM HH:mm:ss")
+                        </td>
+                        <td>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-mono
+                                         bg-srt-navy-50 text-srt-navy border border-srt-navy-100">
+                                @log.Action
+                            </span>
+                        </td>
+                        <td class="text-xs text-gray-600">
+                            @if (log.ActorId.HasValue)
+                            {
+                                <span class="font-medium">
+                                    @Model.ActorNames.GetValueOrDefault(log.ActorId.Value, log.ActorCode ?? "-")
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-gray-400 italic">ระบบ</span>
+                            }
+                        </td>
+                        <td class="text-xs text-gray-500">
+                            @if (log.EntityType != null)
+                            {
+                                <span class="font-medium text-gray-700">@log.EntityType</span>
+                                if (log.EntityId != null) { <span class="text-gray-400"> #@log.EntityId</span> }
+                            }
+                            else
+                            {
+                                <span class="text-gray-300">—</span>
+                            }
+                        </td>
+                        <td class="text-xs text-gray-400 font-mono">
+                            @(log.IpAddress ?? "—")
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

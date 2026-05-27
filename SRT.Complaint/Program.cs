@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using SRT.Complaint.Data;
+using SRT.Complaint.Filters;
 using SRT.Complaint.Services;
 using System.Threading.RateLimiting;
 
@@ -44,7 +45,8 @@ try
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.SameSite = SameSiteMode.Strict;
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        options.ExpireTimeSpan = TimeSpan.FromHours(1);
+        options.SlidingExpiration = true;
     })
     .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
     {
@@ -65,6 +67,7 @@ try
         options.AddPolicy("GeneralOfficer", policy => policy.RequireRole("GeneralOfficer"));
         options.AddPolicy("CorruptionOfficer", policy => policy.RequireRole("CorruptionOfficer"));
         options.AddPolicy("StaffOnly", policy => policy.RequireRole("GeneralOfficer", "CorruptionOfficer", "SuperAdmin"));
+        options.AddPolicy("CorruptionAccess", policy => policy.RequireRole("CorruptionOfficer", "SuperAdmin"));
         options.AddPolicy("SuperAdmin", policy => policy.RequireRole("SuperAdmin"));
     });
 
@@ -78,11 +81,33 @@ try
             limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
             limiter.QueueLimit = 0;
         });
+        options.AddFixedWindowLimiter("TrackVerifyPolicy", limiter =>
+        {
+            limiter.PermitLimit = 10;
+            limiter.Window = TimeSpan.FromMinutes(15);
+            limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+            limiter.QueueLimit = 0;
+        });
+        options.AddFixedWindowLimiter("LoginPolicy", limiter =>
+        {
+            limiter.PermitLimit = 10;
+            limiter.Window = TimeSpan.FromMinutes(15);
+            limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+            limiter.QueueLimit = 0;
+        });
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     });
 
     // ──────────── Memory Cache (for API rate limiting) ────────────
     builder.Services.AddMemoryCache();
+    builder.Services.AddDistributedMemoryCache();
+    builder.Services.AddSession(options =>
+    {
+        options.IdleTimeout = TimeSpan.FromMinutes(30);
+        options.Cookie.HttpOnly = true;
+        options.Cookie.IsEssential = true;
+        options.Cookie.SameSite = SameSiteMode.Strict;
+    });
 
     // ──────────── Services ────────────
     builder.Services.AddScoped<IAuditService, AuditService>();
@@ -93,9 +118,16 @@ try
     builder.Services.AddScoped<ICorruptionService, CorruptionService>();
     builder.Services.AddScoped<IApiKeyService, ApiKeyService>();
     builder.Services.AddScoped<IPdfExportService, PdfExportService>();
+    builder.Services.AddScoped<IApiRequestLogService, ApiRequestLogService>();
+    builder.Services.AddScoped<IWebhookService, WebhookService>();
+    builder.Services.AddScoped<ITermsService, TermsService>();
+    builder.Services.AddScoped<IContentBlockService, ContentBlockService>();
+    builder.Services.AddScoped<ITurnstileService, TurnstileService>();
+    builder.Services.AddScoped<ApiKeyAuthFilter>();
 
     // ──────────── Background Services ────────────
     builder.Services.AddHostedService<SlaBackgroundService>();
+    builder.Services.AddHostedService<WebhookRetryService>();
 
     // ──────────── MVC & Razor Pages ────────────
     builder.Services.AddControllers();
@@ -103,6 +135,10 @@ try
 
     // ──────────── HTTP Clients ────────────
     builder.Services.AddHttpClient();
+    builder.Services.AddHttpClient("Webhook", client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(15);
+    });
 
     // ──────────── File Upload ────────────
     builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(options =>
@@ -111,6 +147,28 @@ try
     });
 
     var app = builder.Build();
+
+    // ──────────── Seed SuperAdmin (first-run only) ────────────
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        if (!db.StaffUsers.Any(u => u.Role == "SuperAdmin"))
+        {
+            db.StaffUsers.Add(new SRT.Complaint.Models.StaffUser
+            {
+                EmployeeCode = "0000001",
+                FullName = "Super Administrator",
+                Email = "admin@railway.co.th",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@1234", 12),
+                Role = "SuperAdmin",
+                IsActive = true,
+                MustChangePassword = true,
+                CreatedAt = DateTime.UtcNow
+            });
+            db.SaveChanges();
+            Log.Information("Seeded default SuperAdmin (EmployeeCode=0000001)");
+        }
+    }
 
     // ──────────── Middleware Pipeline ────────────
     if (!app.Environment.IsDevelopment())
@@ -128,7 +186,31 @@ try
     app.UseStaticFiles();
     app.UseRouting();
     app.UseRateLimiter();
+    app.UseSession();
     app.UseAuthentication();
+
+    // Redirect to password change page if MustChangePassword claim is set
+    app.Use(async (context, next) =>
+    {
+        if (context.User.Identity?.IsAuthenticated == true &&
+            context.User.HasClaim("MustChangePassword", "true"))
+        {
+            var path = context.Request.Path.Value ?? "";
+            var isAllowed = path.StartsWith("/Staff/ChangePassword", StringComparison.OrdinalIgnoreCase)
+                         || path.StartsWith("/Staff/Logout", StringComparison.OrdinalIgnoreCase)
+                         || path.StartsWith("/favicon", StringComparison.OrdinalIgnoreCase)
+                         || path.StartsWith("/css/", StringComparison.OrdinalIgnoreCase)
+                         || path.StartsWith("/js/", StringComparison.OrdinalIgnoreCase)
+                         || path.StartsWith("/lib/", StringComparison.OrdinalIgnoreCase);
+            if (!isAllowed)
+            {
+                context.Response.Redirect("/Staff/ChangePassword");
+                return;
+            }
+        }
+        await next(context);
+    });
+
     app.UseAuthorization();
 
     app.MapControllers();

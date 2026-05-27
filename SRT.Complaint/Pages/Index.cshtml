@@ -1,10 +1,766 @@
-﻿@page
+@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
-}
+    Layout = null;
+    ViewData["Title"] = "ระบบรับเรื่องร้องเรียน — การรถไฟแห่งประเทศไทย";
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+    var steps   = Model.HomeBlocks.GetValueOrDefault("home_steps");
+    var contact = Model.HomeBlocks.GetValueOrDefault("home_contact");
+    var trust   = Model.HomeBlocks.GetValueOrDefault("home_trust");
+}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="ระบบรับเรื่องร้องเรียนออนไลน์ การรถไฟแห่งประเทศไทย" />
+    <title>ระบบรับเรื่องร้องเรียน — การรถไฟแห่งประเทศไทย</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
+            height: 100%;
+            font-family: 'Sarabun', 'TH Sarabun New', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* ── Split ── */
+        .wrap { display: flex; min-height: 100vh; }
+
+        /* ── LEFT ── */
+        .panel-l {
+            width: 55%;
+            background: #1b3a6e;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 64px 72px;
+            position: relative;
+        }
+        .panel-l::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at 20% 30%, rgba(255,255,255,.04) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        .panel-l h1 {
+            font-size: clamp(2rem, 2.8vw, 2.75rem);
+            font-weight: 800;
+            color: #fff;
+            line-height: 1.25;
+            margin-bottom: 10px;
+        }
+        .panel-l .dept {
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: rgba(255,255,255,.65);
+        }
+        .panel-l .footer-note {
+            position: absolute;
+            bottom: 28px;
+            left: 72px;
+            right: 72px;
+            font-size: 0.7rem;
+            color: rgba(255,255,255,.28);
+            line-height: 1.6;
+        }
+
+        /* ── RIGHT ── */
+        .panel-r {
+            width: 45%;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 64px 56px;
+        }
+        .btn-stack {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .btn-action {
+            display: block;
+            width: 100%;
+            padding: 15px 24px;
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: .9375rem;
+            font-weight: 600;
+            text-align: center;
+            text-decoration: none;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: filter .18s, transform .15s;
+            letter-spacing: .01em;
+        }
+        .btn-action:hover  { filter: brightness(1.07); transform: translateY(-1px); }
+        .btn-action:active { transform: translateY(0); filter: brightness(.97); }
+        .btn-green { background: #3baa45; }
+        .btn-teal  { background: #0d9396; }
+
+        /* ── Info divider ── */
+        .info-divider {
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0 16px;
+        }
+        .info-divider span {
+            font-size: .72rem;
+            font-weight: 500;
+            color: #b0b8c8;
+            white-space: nowrap;
+            letter-spacing: .04em;
+        }
+        .info-divider::before,
+        .info-divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e8ecf2;
+        }
+
+        /* ── Info icon buttons ── */
+        .info-btn-row {
+            width: 100%;
+            max-width: 400px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        .info-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 8px 12px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 8px;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color .18s, background .18s, transform .15s;
+            font-family: inherit;
+            text-align: center;
+        }
+        .info-btn:hover {
+            border-color: #1b3a6e;
+            background: #f4f7fc;
+            transform: translateY(-1px);
+        }
+        .info-btn:active { transform: translateY(0); }
+        .info-btn-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            background: #f0f4fb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1b3a6e;
+        }
+        .info-btn-label {
+            font-size: .73rem;
+            font-weight: 600;
+            color: #374151;
+            line-height: 1.3;
+        }
+
+        /* ── Browser note ── */
+        .browser-note {
+            margin-top: 20px;
+            font-size: 0.72rem;
+            color: #b0b8c8;
+            text-align: center;
+            line-height: 2;
+        }
+        .browser-note .ic {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            vertical-align: middle;
+            margin: 0 2px;
+        }
+
+        /* ══════════════════════════════════════
+           MODAL — CENTERED
+        ══════════════════════════════════════ */
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(10, 20, 40, .50);
+            backdrop-filter: blur(3px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .22s;
+        }
+        .modal-backdrop.open {
+            opacity: 1;
+            pointer-events: all;
+        }
+        .modal-sheet {
+            background: #fff;
+            border-radius: 14px;
+            width: fit-content;
+            min-width: min(400px, 90vw);
+            max-width: min(680px, 90vw);
+            padding: 28px 32px 32px;
+            transform: scale(.96) translateY(8px);
+            transition: transform .25s cubic-bezier(.22,.68,0,1.15);
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 24px 60px rgba(0,0,0,.18);
+        }
+        .modal-backdrop.open .modal-sheet {
+            transform: scale(1) translateY(0);
+        }
+        .modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #f0f2f6;
+        }
+        .modal-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #1b3a6e;
+        }
+        .modal-title-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: #e8f0fb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1b3a6e;
+            flex-shrink: 0;
+        }
+        .modal-close {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: none;
+            background: #f3f4f6;
+            color: #6b7280;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .15s;
+            flex-shrink: 0;
+        }
+        .modal-close:hover { background: #e5e7eb; color: #111; }
+
+        /* ══════════════════════════════════════
+           CONTENT STYLES (used inside BodyHtml)
+        ══════════════════════════════════════ */
+
+        /* Steps */
+        .step-list {
+            list-style: none;
+            counter-reset: step;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            margin-bottom: 6px;
+        }
+        .step-list li {
+            counter-increment: step;
+            display: flex;
+            gap: 14px;
+            align-items: flex-start;
+            padding-bottom: 18px;
+            position: relative;
+        }
+        .step-list li:not(:last-child)::before {
+            content: '';
+            position: absolute;
+            left: 16px;
+            top: 34px;
+            bottom: 0;
+            width: 2px;
+            background: #e2e8f0;
+        }
+        .step-list li::after {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: #1b3a6e;
+            color: #fff;
+            font-size: .85rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            z-index: 1;
+        }
+        .step-list li.done::after { background: #3baa45; }
+        .step-list li b,
+        .step-list li p { padding-left: 48px; }
+        .step-list li b {
+            display: block;
+            font-size: .95rem;
+            font-weight: 700;
+            color: #1b3a6e;
+            margin-bottom: 3px;
+        }
+        .step-list li p {
+            font-size: .83rem;
+            color: #6b7280;
+            line-height: 1.55;
+            margin: 0;
+        }
+        .sla-note {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #e8f0fb;
+            border: 1px solid #c8d6ee;
+            border-radius: 20px;
+            padding: 7px 16px;
+            font-size: .83rem;
+            font-weight: 600;
+            color: #1b3a6e;
+            margin-top: 4px;
+        }
+
+        /* Contact */
+        .contact-dl {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .contact-dl > div {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            padding: 14px 16px;
+            background: #f8fafc;
+            border-radius: 10px;
+            border: 1px solid #e8ecf2;
+        }
+        .contact-dl dt {
+            font-size: .75rem;
+            font-weight: 600;
+            color: #9ca3af;
+            width: 90px;
+            flex-shrink: 0;
+            letter-spacing: .02em;
+        }
+        .contact-dl dd {
+            font-size: .975rem;
+            font-weight: 700;
+            color: #1b3a6e;
+            margin: 0;
+        }
+
+        /* Trust */
+        .trust-ul {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .trust-ul li {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            font-size: .875rem;
+            color: #374151;
+            line-height: 1.55;
+        }
+        .trust-ul li::before {
+            content: '';
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #dcfce7;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2316a34a' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+            background-size: 11px;
+            background-repeat: no-repeat;
+            background-position: center;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+        .pdpa-note {
+            padding: 12px 14px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid #e8ecf2;
+            font-size: .75rem;
+            color: #9ca3af;
+            line-height: 1.65;
+        }
+
+        /* ── Image + controls ── */
+        .img-wrap { margin-bottom: 16px; }
+
+        .content-image {
+            display: block;
+            width: 100%;
+            height: auto;
+            border-radius: 10px;
+            transition: width .2s ease;
+            cursor: zoom-in;
+        }
+
+        .img-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-top: 6px;
+        }
+        .img-ctrl-btn {
+            padding: 3px 10px;
+            border-radius: 6px;
+            border: 1.5px solid #e2e8f0;
+            background: #fff;
+            font-family: inherit;
+            font-size: .72rem;
+            font-weight: 600;
+            color: #6b7280;
+            cursor: pointer;
+            transition: border-color .15s, color .15s, background .15s;
+            line-height: 1.6;
+        }
+        .img-ctrl-btn:hover { border-color: #1b3a6e; color: #1b3a6e; background: #f0f4fb; }
+        .img-ctrl-btn.active { border-color: #1b3a6e; background: #1b3a6e; color: #fff; }
+        .img-ctrl-spacer { flex: 1; }
+
+        /* ── Lightbox ── */
+        .lightbox {
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 10, 25, .88);
+            backdrop-filter: blur(4px);
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .22s;
+            cursor: zoom-out;
+        }
+        .lightbox.open { opacity: 1; pointer-events: all; }
+        .lightbox img {
+            max-width: 95vw;
+            max-height: 92vh;
+            border-radius: 10px;
+            box-shadow: 0 16px 60px rgba(0,0,0,.6);
+            object-fit: contain;
+            cursor: default;
+        }
+        .lightbox-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(255,255,255,.15);
+            border: 1px solid rgba(255,255,255,.25);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background .15s;
+        }
+        .lightbox-close:hover { background: rgba(255,255,255,.28); }
+
+        /* ── Responsive ── */
+        @@media (max-width: 900px) {
+            .panel-l { width: 50%; padding: 48px 40px; }
+            .panel-r { width: 50%; padding: 48px 32px; }
+        }
+        @@media (max-width: 640px) {
+            .wrap { flex-direction: column; }
+            .panel-l { width: 100%; padding: 48px 28px 56px; align-items: center; text-align: center; }
+            .panel-l .footer-note { left: 28px; right: 28px; text-align: center; }
+            .panel-r { width: 100%; padding: 40px 24px 48px; }
+            .btn-stack, .info-divider, .info-btn-row { max-width: 100%; }
+            .modal-sheet { padding: 24px 20px 28px; min-width: 0; width: 92vw; }
+        }
+    </style>
+</head>
+<body>
+<div class="wrap">
+
+    <!-- ══════ LEFT — Branding ══════ -->
+    <div class="panel-l">
+        <img src="~/images/srt-logo.png"
+             alt="การรถไฟแห่งประเทศไทย"
+             style="width:160px; height:auto; object-fit:contain; margin-bottom:36px; flex-shrink:0; filter:brightness(0) invert(1);" />
+        <h1>ระบบรับเรื่องร้องเรียน<br />ออนไลน์</h1>
+        <p class="dept">การรถไฟแห่งประเทศไทย</p>
+        <p class="footer-note">
+            ฝ่ายเทคโนโลยีสารสนเทศ · การรถไฟแห่งประเทศไทย<br />
+            กระทรวงคมนาคม
+        </p>
+    </div>
+
+    <!-- ══════ RIGHT — Actions ══════ -->
+    <div class="panel-r">
+        <div class="btn-stack">
+            <a asp-page="/Public/Submit" class="btn-action btn-green">
+                ยื่นเรื่อง / ติดตามสถานะร้องเรียน ออนไลน์
+            </a>
+            <a asp-page="/Public/SubmitCorruption" class="btn-action btn-teal">
+                แจ้งเบาะแสทุจริต (ปิดลับ)
+            </a>
+            <a asp-page="/Public/Track" class="btn-action btn-teal">
+                ติดตามสถานะเรื่องร้องเรียน
+            </a>
+            <a asp-page="/Staff/Login" class="btn-action btn-teal">
+                เข้าสู่ระบบเจ้าหน้าที่
+            </a>
+        </div>
+
+        <div class="info-divider"><span>ข้อมูลเพิ่มเติม</span></div>
+
+        <div class="info-btn-row">
+            <button class="info-btn" onclick="openModal('modal-steps')" type="button">
+                <div class="info-btn-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                </div>
+                <span class="info-btn-label">ขั้นตอน<br />การร้องเรียน</span>
+            </button>
+            <button class="info-btn" onclick="openModal('modal-contact')" type="button">
+                <div class="info-btn-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.4 10.8 19.79 19.79 0 01.34 2.18 2 2 0 012.32 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.16 6.16l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+                    </svg>
+                </div>
+                <span class="info-btn-label">ช่องทาง<br />ติดต่อ</span>
+            </button>
+            <button class="info-btn" onclick="openModal('modal-trust')" type="button">
+                <div class="info-btn-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                </div>
+                <span class="info-btn-label">ความปลอดภัย<br />& ความเป็นส่วนตัว</span>
+            </button>
+        </div>
+
+        <p class="browser-note">
+            รองรับ
+            <svg class="ic" viewBox="0 0 20 20" aria-label="Chrome">
+                <circle cx="10" cy="10" r="10" fill="#fff" stroke="#ddd" stroke-width=".5"/>
+                <circle cx="10" cy="10" r="4.5" fill="#4285F4"/>
+                <path d="M10 6.5h8.2A9.5 9.5 0 0110 .5a9.5 9.5 0 00-8.2 6z" fill="#EA4335"/>
+                <path d="M2.2 13A9.5 9.5 0 0110 19.5a9.5 9.5 0 007.8-4.5l-4.1-7A4.5 4.5 0 0110 9.5a4.5 4.5 0 00-3.7 2.5z" fill="#34A853"/>
+                <path d="M17.8 13L10 13a4.5 4.5 0 01-3.7-2.5L2.2 6.5A9.5 9.5 0 00.5 10a9.5 9.5 0 001.7 5.5z" fill="#FBBC05"/>
+                <circle cx="10" cy="10" r="3" fill="#4285F4"/>
+            </svg>
+            <svg class="ic" viewBox="0 0 20 20" aria-label="Firefox">
+                <circle cx="10" cy="10" r="10" fill="#FF6611"/>
+                <circle cx="10" cy="10" r="6" fill="#FFD700"/>
+                <circle cx="10" cy="10" r="3.5" fill="#FF6611"/>
+            </svg>
+            <svg class="ic" viewBox="0 0 20 20" aria-label="Edge">
+                <circle cx="10" cy="10" r="10" fill="#0078D4"/>
+                <path d="M5 12c0-3.3 2.7-6 6-6 1.3 0 2.5.4 3.5 1.1C13.1 6.4 11.6 6 10 6c-2.8 0-5 2.2-5 5 0 1.4.6 2.7 1.5 3.6H5.5C5.2 13.8 5 12.9 5 12z" fill="#50e6ff"/>
+                <ellipse cx="11" cy="14" rx="5" ry="2" fill="#50e6ff"/>
+            </svg>
+            Chrome · Firefox · Edge
+        </p>
+    </div>
 </div>
+
+<!-- ══════ MODAL: ขั้นตอน ══════ -->
+<div id="modal-steps" class="modal-backdrop" onclick="closeOnBackdrop(event,this)">
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="steps-title">
+        <div class="modal-header">
+            <div class="modal-title" id="steps-title">
+                <div class="modal-title-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                </div>
+                @(steps?.Title ?? "ขั้นตอนการร้องเรียน")
+            </div>
+            <button class="modal-close" onclick="closeModal('modal-steps')" aria-label="ปิด">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        @Html.Raw(steps?.BodyHtml)
+    </div>
+</div>
+
+<!-- ══════ MODAL: ติดต่อ ══════ -->
+<div id="modal-contact" class="modal-backdrop" onclick="closeOnBackdrop(event,this)">
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="contact-title">
+        <div class="modal-header">
+            <div class="modal-title" id="contact-title">
+                <div class="modal-title-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.4 10.8 19.79 19.79 0 01.34 2.18 2 2 0 012.32 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.16 6.16l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/>
+                    </svg>
+                </div>
+                @(contact?.Title ?? "ช่องทางติดต่อ")
+            </div>
+            <button class="modal-close" onclick="closeModal('modal-contact')" aria-label="ปิด">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        @Html.Raw(contact?.BodyHtml)
+    </div>
+</div>
+
+<!-- ══════ MODAL: ความปลอดภัย ══════ -->
+<div id="modal-trust" class="modal-backdrop" onclick="closeOnBackdrop(event,this)">
+    <div class="modal-sheet" role="dialog" aria-modal="true" aria-labelledby="trust-title">
+        <div class="modal-header">
+            <div class="modal-title" id="trust-title">
+                <div class="modal-title-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                    </svg>
+                </div>
+                @(trust?.Title ?? "ความปลอดภัย & ความเป็นส่วนตัว")
+            </div>
+            <button class="modal-close" onclick="closeModal('modal-trust')" aria-label="ปิด">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        @Html.Raw(trust?.BodyHtml)
+    </div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()" aria-label="ปิด">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+    </button>
+    <img src="" alt="" onclick="event.stopPropagation()" />
+</div>
+
+<script>
+    /* ── Modal ── */
+    function openModal(id) {
+        document.getElementById(id).classList.add('open');
+        document.body.style.overflow = 'hidden';
+        initImageControls(document.getElementById(id));
+    }
+    function closeModal(id) {
+        document.getElementById(id).classList.remove('open');
+        document.body.style.overflow = '';
+    }
+    function closeOnBackdrop(e, el) {
+        if (e.target === el) closeModal(el.id);
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-backdrop.open')
+                    .forEach(function(m) { closeModal(m.id); });
+            closeLightbox();
+        }
+    });
+
+    /* ── Image controls ── */
+    var _initDone = new WeakSet();
+
+    function initImageControls(container) {
+        container.querySelectorAll('.content-image').forEach(function(img) {
+            if (_initDone.has(img)) return;
+            _initDone.add(img);
+
+            // wrap
+            var wrap = document.createElement('div');
+            wrap.className = 'img-wrap';
+            img.parentNode.insertBefore(wrap, img);
+            wrap.appendChild(img);
+
+            // controls bar
+            var bar = document.createElement('div');
+            bar.className = 'img-controls';
+            bar.innerHTML =
+                '<button class="img-ctrl-btn" onclick="setImgSize(this,\'50%\')">50%</button>' +
+                '<button class="img-ctrl-btn active" onclick="setImgSize(this,\'100%\')">100%</button>' +
+                '<span class="img-ctrl-spacer"></span>' +
+                '<button class="img-ctrl-btn" onclick="openLightbox(this)" aria-label="เต็มจอ">' +
+                    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="display:inline;vertical-align:middle;margin-right:4px;">' +
+                        '<path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/>' +
+                    '</svg>เต็มจอ</button>';
+            wrap.appendChild(bar);
+
+            // click image → lightbox
+            img.addEventListener('click', function() { openLightboxSrc(img.src, img.alt); });
+        });
+    }
+
+    function setImgSize(btn, size) {
+        var wrap = btn.closest('.img-wrap');
+        var img = wrap.querySelector('.content-image');
+        img.style.width = size;
+        wrap.querySelectorAll('.img-ctrl-btn').forEach(function(b) {
+            b.classList.toggle('active', b === btn);
+        });
+    }
+
+    function openLightbox(btn) {
+        var img = btn.closest('.img-wrap').querySelector('.content-image');
+        openLightboxSrc(img.src, img.alt);
+    }
+
+    function openLightboxSrc(src, alt) {
+        var lb = document.getElementById('lightbox');
+        lb.querySelector('img').src = src;
+        lb.querySelector('img').alt = alt || '';
+        lb.classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+        var lb = document.getElementById('lightbox');
+        lb.classList.remove('open');
+        lb.querySelector('img').src = '';
+        if (!document.querySelector('.modal-backdrop.open'))
+            document.body.style.overflow = '';
+    }
+</script>
+</body>
+</html>

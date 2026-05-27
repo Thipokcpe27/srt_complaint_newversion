@@ -9,12 +9,15 @@ public class Complaint
     public string ReporterName { get; set; } = string.Empty;
     public string ReporterPhone { get; set; } = string.Empty;
     public string? ReporterEmail { get; set; }
+    public string? ReporterIdCard { get; set; }
 
     public int CategoryId { get; set; }
+    public int? SubCategoryId { get; set; }
     public string? SubjectStation { get; set; }
     public DateOnly? IncidentDate { get; set; }
     public string Description { get; set; } = string.Empty;
 
+    public string Channel { get; set; } = "Web";
     public string Priority { get; set; } = "Normal";
     public string Status { get; set; } = "Pending";
     public int? AssignedToId { get; set; }
@@ -31,6 +34,7 @@ public class Complaint
     public string? SatisfactionNote { get; set; }
 
     public ComplaintCategory Category { get; set; } = null!;
+    public ComplaintSubCategory? SubCategory { get; set; }
     public StaffUser? AssignedTo { get; set; }
     public ICollection<ComplaintAttachment> Attachments { get; set; } = new List<ComplaintAttachment>();
     public ICollection<ComplaintNote> Notes { get; set; } = new List<ComplaintNote>();

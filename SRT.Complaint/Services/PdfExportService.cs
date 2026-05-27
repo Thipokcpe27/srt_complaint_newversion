@@ -1,177 +1,393 @@
+using QuestPDF.Drawing;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using SRT.Complaint.Models;
+using Microsoft.AspNetCore.Hosting;
 
 namespace SRT.Complaint.Services;
 
 public class PdfExportService : IPdfExportService
 {
+    private readonly IWebHostEnvironment _env;
+    private static bool _fontsRegistered;
+    private static readonly Lock _fontLock = new();
+
     static PdfExportService()
     {
         QuestPDF.Settings.License = LicenseType.Community;
     }
 
-    public byte[] GenerateComplaintPdf(Models.Complaint complaint, string? officerName = null)
+    public PdfExportService(IWebHostEnvironment env)
     {
-        return Document.Create(container =>
-        {
-            container.Page(page =>
-            {
-                page.Margin(30);
-                page.Size(PageSizes.A4);
-                page.DefaultTextStyle(t => t.FontFamily("TH Sarabun New", "Sarabun", "sans-serif").FontSize(14));
-
-                page.Header().Column(col =>
-                {
-                    col.Item().AlignCenter().Text("การรถไฟแห่งประเทศไทย").Bold().FontSize(18);
-                    col.Item().AlignCenter().Text("บันทึกเรื่องร้องเรียน").FontSize(16);
-                    col.Item().PaddingTop(5).LineHorizontal(1);
-                });
-
-                page.Content().PaddingTop(15).Column(col =>
-                {
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("เลขที่คำร้อง:").Bold();
-                        r.RelativeItem(3).Text(complaint.ReferenceNumber);
-                    });
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("วันที่รับเรื่อง:").Bold();
-                        r.RelativeItem(3).Text(complaint.CreatedAt.ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("th-TH")));
-                    });
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("ประเภทเรื่อง:").Bold();
-                        r.RelativeItem(3).Text(complaint.Category?.Name ?? "-");
-                    });
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("ความเร่งด่วน:").Bold();
-                        r.RelativeItem(3).Text(complaint.Priority);
-                    });
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("กำหนดส่งผล:").Bold();
-                        r.RelativeItem(3).Text(complaint.SlaDeadline?.ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("th-TH")) ?? "-");
-                    });
-
-                    col.Item().PaddingTop(10).Text("ข้อมูลผู้ร้องเรียน:").Bold();
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("ชื่อ-สกุล:").Bold();
-                        r.RelativeItem(3).Text(complaint.ReporterName);
-                    });
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("เบอร์โทร:").Bold();
-                        r.RelativeItem(3).Text(complaint.ReporterPhone);
-                    });
-                    if (!string.IsNullOrEmpty(complaint.ReporterEmail))
-                        col.Item().Row(r =>
-                        {
-                            r.RelativeItem().Text("อีเมล:").Bold();
-                            r.RelativeItem(3).Text(complaint.ReporterEmail);
-                        });
-
-                    if (!string.IsNullOrEmpty(complaint.SubjectStation))
-                        col.Item().Row(r =>
-                        {
-                            r.RelativeItem().Text("สถานที่/สถานี:").Bold();
-                            r.RelativeItem(3).Text(complaint.SubjectStation);
-                        });
-                    if (complaint.IncidentDate.HasValue)
-                        col.Item().Row(r =>
-                        {
-                            r.RelativeItem().Text("วัน/เวลาเกิดเหตุ:").Bold();
-                            r.RelativeItem(3).Text(complaint.IncidentDate.Value.ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("th-TH")));
-                        });
-
-                    col.Item().PaddingTop(10).Text("รายละเอียดคำร้อง:").Bold();
-                    col.Item().Text(complaint.Description);
-
-                    if (!string.IsNullOrEmpty(officerName))
-                        col.Item().PaddingTop(10).Row(r =>
-                        {
-                            r.RelativeItem().Text("เจ้าหน้าที่รับเรื่อง:").Bold();
-                            r.RelativeItem(3).Text(officerName);
-                        });
-
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("วันที่พิมพ์:").Bold();
-                        r.RelativeItem(3).Text(DateTime.Now.ToString("dd MMMM yyyy เวลา HH:mm น.", new System.Globalization.CultureInfo("th-TH")));
-                    });
-                });
-
-                page.Footer().AlignRight().Text(t =>
-                {
-                    t.Span("หน้า ");
-                    t.CurrentPageNumber();
-                    t.Span(" จาก ");
-                    t.TotalPages();
-                });
-            });
-        }).GeneratePdf();
+        _env = env;
+        EnsureFontsRegistered();
     }
 
-    public byte[] GenerateCorruptionReportPdf(CorruptionReport report, string? officerName = null)
+    private void EnsureFontsRegistered()
     {
-        return Document.Create(container =>
+        if (_fontsRegistered) return;
+        lock (_fontLock)
         {
-            container.Page(page =>
-            {
-                page.Margin(30);
-                page.Size(PageSizes.A4);
-                page.DefaultTextStyle(t => t.FontFamily("TH Sarabun New", "Sarabun", "sans-serif").FontSize(14));
+            if (_fontsRegistered) return;
+            var dir = Path.Combine(_env.ContentRootPath, "Fonts");
+            TryRegister(Path.Combine(dir, "Sarabun-Regular.ttf"));
+            TryRegister(Path.Combine(dir, "Sarabun-Bold.ttf"));
+            _fontsRegistered = true;
+        }
+    }
 
-                page.Header().Column(col =>
+    private static void TryRegister(string path)
+    {
+        if (!File.Exists(path)) return;
+        using var stream = File.OpenRead(path);
+        FontManager.RegisterFont(stream);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Text styles  (ลดจาก 16/18pt เหลือ 13/15pt ตามสารบรรณไทย)
+    // ──────────────────────────────────────────────────────────────────
+    private static readonly System.Globalization.CultureInfo ThaiCulture = new("th-TH");
+
+    private static TextStyle DocTitle  => TextStyle.Default.FontFamily("Sarabun").FontSize(14).Bold();
+    private static TextStyle OrgName   => TextStyle.Default.FontFamily("Sarabun").FontSize(11);
+    private static TextStyle H1        => TextStyle.Default.FontFamily("Sarabun").FontSize(11).Bold();
+    private static TextStyle Body      => TextStyle.Default.FontFamily("Sarabun").FontSize(11);
+    private static TextStyle Small     => TextStyle.Default.FontFamily("Sarabun").FontSize(8);
+
+    private const string PdpaNotice =
+        "ศูนย์ประชาสัมพันธ์ขอปกปิดชื่อผู้ร้องเรียน และหมายเลขโทรศัพท์ " +
+        "ตาม พรบ.คุ้มครองข้อมูลส่วนบุคคล พ.ศ. 2562";
+
+    // ──────────────────────────────────────────────────────────────────
+    //  Helper — แถว label : value
+    // ──────────────────────────────────────────────────────────────────
+    private static void Field(ColumnDescriptor col, string label, string value)
+    {
+        col.Item().Row(r =>
+        {
+            r.AutoItem().PaddingRight(6).DefaultTextStyle(H1).Text(label);
+            r.RelativeItem().DefaultTextStyle(Body).Text(value);
+        });
+    }
+
+    private static void FieldPair(ColumnDescriptor col,
+        string label1, string value1,
+        string? label2 = null, string? value2 = null)
+    {
+        col.Item().Row(row =>
+        {
+            row.RelativeItem().Row(r =>
+            {
+                r.AutoItem().PaddingRight(6).DefaultTextStyle(H1).Text(label1);
+                r.RelativeItem().DefaultTextStyle(Body).Text(value1);
+            });
+            if (label2 != null && value2 != null)
+            {
+                row.ConstantItem(24);
+                row.RelativeItem().Row(r =>
                 {
-                    col.Item().AlignCenter().Text("การรถไฟแห่งประเทศไทย").Bold().FontSize(18);
-                    col.Item().AlignCenter().Text("บันทึกรับแจ้งเบาะแสทุจริต (ลับ)").FontSize(16);
-                    col.Item().PaddingTop(5).LineHorizontal(1);
+                    r.AutoItem().PaddingRight(6).DefaultTextStyle(H1).Text(label2);
+                    r.RelativeItem().DefaultTextStyle(Body).Text(value2);
+                });
+            }
+        });
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  เอกสารเรื่องร้องเรียนทั่วไป
+    // ──────────────────────────────────────────────────────────────────
+    public byte[] GenerateComplaintPdf(Models.Complaint complaint, string? officerName = null, bool maskReporter = false)
+    {
+        var logo = GetLogo();
+        var subject = complaint.SubCategory != null
+            ? $"{complaint.Category?.Name} - {complaint.SubCategory.Name}"
+            : complaint.Category?.Name ?? "-";
+
+        return Document.Create(c => c.Page(page =>
+        {
+            page.Margin(40);
+            page.Size(PageSizes.A4);
+            page.DefaultTextStyle(Body);
+
+            // ══ HEADER ════════════════════════════════════════════════
+            page.Header().Column(col =>
+            {
+                // แถว 1: โลโก้ (ซ้าย) + ชื่อเอกสาร + ชื่อหน่วยงาน (กลาง)
+                col.Item().Row(row =>
+                {
+                    if (logo != null)
+                        row.ConstantItem(68).AlignMiddle().Image(logo).FitWidth();
+
+                    row.RelativeItem().AlignMiddle().Column(c =>
+                    {
+                        c.Item().AlignCenter().DefaultTextStyle(DocTitle)
+                            .Text("ใบบันทึกเรื่องร้องเรียน");
+                        c.Item().PaddingTop(2).AlignCenter().DefaultTextStyle(OrgName)
+                            .Text("การรถไฟแห่งประเทศไทย");
+                    });
                 });
 
-                page.Content().PaddingTop(15).Column(col =>
+                col.Item().PaddingTop(5);
+
+                // แถว 2: ศูนย์ประชาสัมพันธ์
+                col.Item().DefaultTextStyle(H1).Text("ศูนย์ประชาสัมพันธ์");
+
+                // แถว 3: เบอร์โทร (ชิดซ้าย) | อีเมล (ชิดขวา)
+                col.Item().PaddingTop(1).Row(row =>
                 {
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("เลขที่คำร้อง:").Bold();
-                        r.RelativeItem(3).Text(report.ReferenceNumber);
-                    });
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("ผู้แจ้ง:").Bold();
-                        r.RelativeItem(3).Text(report.ReporterNameMasked);
-                    });
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("เบอร์โทร:").Bold();
-                        r.RelativeItem(3).Text(report.ReporterPhoneMasked);
-                    });
-                    col.Item().Row(r =>
-                    {
-                        r.RelativeItem().Text("ประเภทการทุจริต:").Bold();
-                        r.RelativeItem(3).Text(report.SubjectType);
-                    });
-                    col.Item().PaddingTop(10).Text("รายละเอียด:").Bold();
-                    col.Item().Text(report.Description);
+                    row.RelativeItem().DefaultTextStyle(Small)
+                        .Text("โทรศัพท์ / โทรสาร : 0 2220 4297");
+                    row.RelativeItem().AlignRight().DefaultTextStyle(Small)
+                        .Text("E-Mail : complaint@railway.co.th");
+                });
 
-                    if (!string.IsNullOrEmpty(officerName))
-                        col.Item().PaddingTop(10).Row(r =>
-                        {
-                            r.RelativeItem().Text("เจ้าหน้าที่รับเรื่อง:").Bold();
-                            r.RelativeItem(3).Text(officerName);
-                        });
+                // เส้นคู่
+                col.Item().PaddingTop(5).LineHorizontal(2f);
+                col.Item().PaddingTop(2).LineHorizontal(0.5f);
+                col.Item().PaddingTop(6);
+            });
 
-                    col.Item().Row(r =>
+            // ══ CONTENT ═══════════════════════════════════════════════
+            page.Content().Column(col =>
+            {
+                // แถวอ้างอิง 2 คอลัมน์
+                col.Item().Row(row =>
+                {
+                    row.RelativeItem().Row(r =>
                     {
-                        r.RelativeItem().Text("วันที่พิมพ์:").Bold();
-                        r.RelativeItem(3).Text(DateTime.Now.ToString("dd MMMM yyyy เวลา HH:mm น.", new System.Globalization.CultureInfo("th-TH")));
+                        r.AutoItem().PaddingRight(6).DefaultTextStyle(H1).Text("รหัสเรื่อง :");
+                        r.RelativeItem().DefaultTextStyle(Body).Text(complaint.ReferenceNumber);
+                    });
+                    row.RelativeItem().Row(r =>
+                    {
+                        r.AutoItem().PaddingRight(6).DefaultTextStyle(H1).Text("วันที่รับเรื่อง :");
+                        r.RelativeItem().DefaultTextStyle(Body)
+                            .Text(complaint.CreatedAt.ToString("d MMMM yyyy", ThaiCulture));
+                    });
+                });
+
+                col.Item().PaddingTop(3).Row(row =>
+                {
+                    row.RelativeItem().Row(r =>
+                    {
+                        r.AutoItem().PaddingRight(6).DefaultTextStyle(H1).Text("เรื่อง :");
+                        r.RelativeItem().DefaultTextStyle(Body).Text(subject);
+                    });
+                    row.RelativeItem().Row(r =>
+                    {
+                        r.AutoItem().PaddingRight(6).DefaultTextStyle(H1).Text("วันที่พิมพ์ :");
+                        r.RelativeItem().DefaultTextStyle(Body)
+                            .Text(DateTime.Now.ToString("d MMMM yyyy", ThaiCulture));
+                    });
+                });
+
+                col.Item().PaddingTop(8).LineHorizontal(0.5f);
+                col.Item().PaddingTop(6);
+
+                // ข้อมูลผู้ร้องเรียน
+                if (maskReporter)
+                {
+                    Field(col, "ชื่อผู้ร้องเรียน :", PdpaNotice);
+                }
+                else
+                {
+                    Field(col, "ชื่อผู้ร้องเรียน :", complaint.ReporterName);
+                    col.Item().PaddingTop(3);
+                    FieldPair(col,
+                        "เบอร์โทรศัพท์ :", complaint.ReporterPhone,
+                        !string.IsNullOrEmpty(complaint.ReporterEmail) ? "อีเมล :" : null,
+                        !string.IsNullOrEmpty(complaint.ReporterEmail) ? complaint.ReporterEmail : null);
+                }
+
+                var hasStation = !string.IsNullOrEmpty(complaint.SubjectStation);
+                var hasDate    = complaint.IncidentDate.HasValue;
+                if (hasStation || hasDate)
+                {
+                    col.Item().PaddingTop(3);
+                    FieldPair(col,
+                        hasStation ? "สถานที่ / สถานี :" : "วัน / เวลาเกิดเหตุ :",
+                        hasStation ? complaint.SubjectStation! : complaint.IncidentDate!.Value.ToString("d MMMM yyyy", ThaiCulture),
+                        hasStation && hasDate ? "วัน / เวลาเกิดเหตุ :" : null,
+                        hasStation && hasDate ? complaint.IncidentDate!.Value.ToString("d MMMM yyyy", ThaiCulture) : null);
+                }
+
+                col.Item().PaddingTop(8).LineHorizontal(0.5f);
+                col.Item().PaddingTop(6);
+
+                // รายละเอียดคำร้อง
+                col.Item().DefaultTextStyle(H1).Text("รายละเอียดคำร้อง");
+                col.Item().PaddingTop(4);
+                col.Item().PaddingLeft(8).DefaultTextStyle(Body).Text(complaint.Description);
+
+            });
+
+            // ══ FOOTER ════════════════════════════════════════════════
+            page.Footer().Column(col =>
+            {
+                col.Item().LineHorizontal(0.5f);
+                col.Item().PaddingTop(4).Row(r =>
+                {
+                    r.RelativeItem().DefaultTextStyle(Small).Text(t =>
+                    {
+                        t.Span("ออกโดยระบบรับเรื่องร้องเรียนออนไลน์ การรถไฟแห่งประเทศไทย");
+                        if (!string.IsNullOrEmpty(officerName))
+                            t.Span($"  ·  พิมพ์เอกสารโดย : {officerName}");
+                    });
+                    r.AutoItem().Text(t =>
+                    {
+                        t.DefaultTextStyle(Small);
+                        t.Span("หน้า ");
+                        t.CurrentPageNumber();
+                        t.Span(" / ");
+                        t.TotalPages();
                     });
                 });
             });
-        }).GeneratePdf();
+        })).GeneratePdf();
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  เอกสารแจ้งเบาะแสทุจริต (ลับ)
+    // ──────────────────────────────────────────────────────────────────
+    public byte[] GenerateCorruptionReportPdf(CorruptionReport report, string? officerName = null)
+    {
+        var logo = GetLogo();
+
+        return Document.Create(c => c.Page(page =>
+        {
+            page.Margin(40);
+            page.Size(PageSizes.A4);
+            page.DefaultTextStyle(Body);
+
+            // ══ HEADER ════════════════════════════════════════════════
+            page.Header().Column(col =>
+            {
+                col.Item().AlignRight().DefaultTextStyle(H1).Text("ลับ");
+
+                col.Item().PaddingTop(2).Row(row =>
+                {
+                    if (logo != null)
+                        row.ConstantItem(68).AlignMiddle().Image(logo).FitWidth();
+
+                    row.RelativeItem().AlignMiddle().Column(c =>
+                    {
+                        c.Item().AlignCenter().DefaultTextStyle(DocTitle)
+                            .Text("บันทึกรับแจ้งเบาะแสการทุจริต");
+                        c.Item().PaddingTop(2).AlignCenter().DefaultTextStyle(OrgName)
+                            .Text("การรถไฟแห่งประเทศไทย");
+                    });
+                });
+
+                col.Item().PaddingTop(5);
+
+                col.Item().Row(row =>
+                {
+                    row.RelativeItem().DefaultTextStyle(H1).Text("ศูนย์ประชาสัมพันธ์");
+                    row.RelativeItem().AlignRight().DefaultTextStyle(H1).Text("กระทรวงคมนาคม");
+                });
+
+                col.Item().PaddingTop(1).Row(row =>
+                {
+                    row.RelativeItem().DefaultTextStyle(Small)
+                        .Text("โทรศัพท์ / โทรสาร : 0 2220 4297");
+                    row.RelativeItem().AlignRight().DefaultTextStyle(Small)
+                        .Text("E-Mail : complaint@railway.co.th");
+                });
+
+                col.Item().PaddingTop(5).LineHorizontal(2f);
+                col.Item().PaddingTop(2).LineHorizontal(0.5f);
+                col.Item().PaddingTop(6);
+            });
+
+            // ══ CONTENT ═══════════════════════════════════════════════
+            page.Content().Column(col =>
+            {
+                col.Item().Row(row =>
+                {
+                    row.RelativeItem().Row(r =>
+                    {
+                        r.AutoItem().PaddingRight(6).DefaultTextStyle(H1).Text("เลขที่รายงาน :");
+                        r.RelativeItem().DefaultTextStyle(Body).Text(report.ReferenceNumber);
+                    });
+                    row.RelativeItem().Row(r =>
+                    {
+                        r.AutoItem().PaddingRight(6).DefaultTextStyle(H1).Text("วันที่รับเรื่อง :");
+                        r.RelativeItem().DefaultTextStyle(Body)
+                            .Text(report.CreatedAt.ToString("d MMMM yyyy", ThaiCulture));
+                    });
+                });
+
+                col.Item().PaddingTop(3).Row(row =>
+                {
+                    row.RelativeItem().Row(r =>
+                    {
+                        r.AutoItem().PaddingRight(6).DefaultTextStyle(H1).Text("ประเภทการทุจริต :");
+                        r.RelativeItem().DefaultTextStyle(Body).Text(report.SubjectType);
+                    });
+                    row.RelativeItem().Row(r =>
+                    {
+                        r.AutoItem().PaddingRight(6).DefaultTextStyle(H1).Text("วันที่พิมพ์ :");
+                        r.RelativeItem().DefaultTextStyle(Body)
+                            .Text(DateTime.Now.ToString("d MMMM yyyy", ThaiCulture));
+                    });
+                });
+
+                col.Item().PaddingTop(8).LineHorizontal(0.5f);
+                col.Item().PaddingTop(6);
+
+                Field(col, "ชื่อผู้แจ้ง :", report.ReporterNameMasked);
+                Field(col, "เบอร์โทรศัพท์ :", report.ReporterPhoneMasked);
+                if (!string.IsNullOrEmpty(report.SubjectPersonName))
+                    Field(col, "ผู้ถูกกล่าวหา :", report.SubjectPersonName);
+                if (!string.IsNullOrEmpty(report.SubjectDepartment))
+                    Field(col, "หน่วยงาน :", report.SubjectDepartment);
+                if (report.IncidentDate.HasValue)
+                    Field(col, "วันที่เกิดเหตุ :",
+                        report.IncidentDate.Value.ToString("d MMMM yyyy", ThaiCulture));
+
+                col.Item().PaddingTop(8).LineHorizontal(0.5f);
+                col.Item().PaddingTop(6);
+
+                col.Item().DefaultTextStyle(H1).Text("รายละเอียดการแจ้งเบาะแส");
+                col.Item().PaddingTop(4);
+                col.Item().PaddingLeft(8).DefaultTextStyle(Body).Text(report.Description);
+
+                col.Item().PaddingTop(8).LineHorizontal(0.5f);
+                col.Item().PaddingTop(6);
+                col.Item().DefaultTextStyle(H1)
+                    .Text("เอกสารนี้มีความลับ — ห้ามเปิดเผยแก่บุคคลที่ไม่เกี่ยวข้อง");
+
+            });
+
+            // ══ FOOTER ════════════════════════════════════════════════
+            page.Footer().Column(col =>
+            {
+                col.Item().LineHorizontal(0.5f);
+                col.Item().PaddingTop(4).Row(r =>
+                {
+                    r.RelativeItem().DefaultTextStyle(Small).Text(t =>
+                    {
+                        t.Span("เอกสารลับ — ออกโดยระบบรับเรื่องร้องเรียนออนไลน์ การรถไฟแห่งประเทศไทย");
+                        if (!string.IsNullOrEmpty(officerName))
+                            t.Span($"  ·  พิมพ์เอกสารโดย : {officerName}");
+                    });
+                    r.AutoItem().Text(t =>
+                    {
+                        t.DefaultTextStyle(Small);
+                        t.Span("หน้า ");
+                        t.CurrentPageNumber();
+                        t.Span(" / ");
+                        t.TotalPages();
+                    });
+                });
+            });
+        })).GeneratePdf();
+    }
+
+    private byte[]? GetLogo()
+    {
+        var path = Path.Combine(_env.WebRootPath, "images", "srt-logo.png");
+        return File.Exists(path) ? File.ReadAllBytes(path) : null;
     }
 }

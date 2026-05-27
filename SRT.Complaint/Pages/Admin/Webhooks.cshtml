@@ -1,0 +1,108 @@
+@page
+@model SRT.Complaint.Pages.Admin.WebhooksModel
+@{
+    ViewData["Title"] = "Webhooks";
+    Layout = "_StaffLayout";
+}
+
+@if (TempData["Success"] != null)
+{
+    <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-5 text-green-800 text-sm font-medium">@TempData["Success"]</div>
+}
+
+<div class="flex items-center justify-between mb-5">
+    <div>
+        <h1 class="text-xl font-bold text-gray-900">Webhooks</h1>
+        <p class="text-gray-500 text-sm mt-0.5">จัดการ Webhook ที่ลงทะเบียนผ่าน API</p>
+    </div>
+</div>
+
+<!-- Webhooks Table -->
+<div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white mb-6">
+    <table class="w-full text-sm border-collapse">
+        <thead>
+            <tr class="bg-gray-50 text-gray-600 text-left text-xs">
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">ชื่อ</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">API Key</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">URL ปลายทาง</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">Events</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">สถานะล่าสุด</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">สร้างเมื่อ</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200 text-right">จัดการ</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Webhooks.Any())
+            {
+                <tr>
+                    <td colspan="7" class="px-4 py-10 text-center text-gray-400 text-sm">ยังไม่มี Webhook ที่ลงทะเบียน</td>
+                </tr>
+            }
+            @foreach (var wh in Model.Webhooks)
+            {
+                var events = WebhooksModel.ParseEvents(wh.Events);
+                <tr class="hover:bg-gray-50/50 border-b border-gray-100 last:border-b-0">
+                    <td class="px-4 py-3">
+                        <div class="font-medium text-gray-900 text-sm">@wh.Name</div>
+                        @if (!wh.IsActive)
+                        {
+                            <span class="text-xs text-red-500">ปิดใช้งาน</span>
+                        }
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-600">@(wh.ApiKey?.Name ?? $"#{wh.ApiKeyId}")</td>
+                    <td class="px-4 py-3">
+                        <span class="font-mono text-xs text-gray-600 truncate block max-w-[200px]" title="@wh.TargetUrl">
+                            @wh.TargetUrl
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <div class="flex flex-wrap gap-1">
+                            @foreach (var ev in events)
+                            {
+                                <span class="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded font-mono">@ev</span>
+                            }
+                        </div>
+                    </td>
+                    <td class="px-4 py-3 text-xs">
+                        @if (wh.LastStatusCode.HasValue)
+                        {
+                            var ok = wh.LastStatusCode >= 200 && wh.LastStatusCode < 300;
+                            <span class="@(ok ? "text-green-700" : "text-red-700") font-mono font-medium">@wh.LastStatusCode</span>
+                            @if (wh.LastTriggeredAt.HasValue)
+                            {
+                                <div class="text-gray-400">
+                                    @wh.LastTriggeredAt.Value.ToLocalTime().ToString("dd/MM/yy HH:mm")
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <span class="text-gray-400">ยังไม่ได้ส่ง</span>
+                        }
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-400">
+                        @wh.CreatedAt.ToLocalTime().ToString("dd/MM/yy HH:mm")
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <form method="post" asp-page-handler="Delete"
+                              onsubmit="return confirm('ลบ Webhook นี้?')">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="DeleteId" value="@wh.Id" />
+                            <button type="submit"
+                                    class="text-xs text-red-600 hover:text-red-800 border border-red-200 px-2.5 py-1 rounded-lg hover:bg-red-50 transition">
+                                ลบ
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Info box -->
+<div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-700">
+    <p class="font-semibold mb-1">วิธีสร้าง Webhook</p>
+    <p>สร้าง Webhook ผ่าน API: <code class="font-mono bg-blue-100 px-1 rounded">POST /api/webhooks</code> ด้วย scope <code class="font-mono bg-blue-100 px-1 rounded">webhooks:manage</code></p>
+    <p class="mt-1">Events ที่รองรับ: <code class="font-mono bg-blue-100 px-1 rounded">complaint.created</code>, <code class="font-mono bg-blue-100 px-1 rounded">complaint.status_changed</code>, <code class="font-mono bg-blue-100 px-1 rounded">complaint.closed</code></p>
+</div>

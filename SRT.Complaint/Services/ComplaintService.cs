@@ -9,6 +9,7 @@ public class ComplaintService(
     ISlaService slaService,
     INotificationService notificationService,
     IAuditService auditService,
+    IServiceScopeFactory scopeFactory,
     IConfiguration config) : IComplaintService
 {
     public async Task<Models.Complaint> SubmitAsync(SubmitComplaintRequest request, CancellationToken ct = default)
@@ -26,10 +27,13 @@ public class ComplaintService(
             ReporterName = request.ReporterName,
             ReporterPhone = request.ReporterPhone,
             ReporterEmail = request.ReporterEmail,
+            ReporterIdCard = request.ReporterIdCard,
             CategoryId = request.CategoryId,
+            SubCategoryId = request.SubCategoryId,
             SubjectStation = request.SubjectStation,
             IncidentDate = request.IncidentDate,
             Description = request.Description,
+            Channel = request.Channel,
             Priority = priority,
             Status = "Pending",
             SlaDeadline = slaService.CalculateDeadline(priority, now),
@@ -48,6 +52,14 @@ public class ComplaintService(
             ["ReferenceNumber"] = refNum,
             ["TrackingUrl"] = $"https://www.railway.co.th/complaint/track/{refNum}"
         }, ct);
+
+        var createdPayload = new { referenceNumber = refNum, status = complaint.Status, priority = complaint.Priority, createdAt = complaint.CreatedAt };
+        _ = Task.Run(async () =>
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var wh = scope.ServiceProvider.GetRequiredService<IWebhookService>();
+            await wh.TriggerAsync("complaint.created", createdPayload);
+        }, CancellationToken.None);
 
         return complaint;
     }
@@ -78,6 +90,11 @@ public class ComplaintService(
         complaint.UpdatedAt = DateTime.UtcNow;
         if (newStatus is "Closed" or "Resolved") complaint.ClosedAt = DateTime.UtcNow;
 
+        db.ComplaintNotes.Add(new ComplaintNote
+        {
+            ComplaintId = id, AuthorId = actorId, NoteType = "StatusChange",
+            Content = $"{oldStatus}→{newStatus}", CreatedAt = DateTime.UtcNow
+        });
         if (!string.IsNullOrWhiteSpace(note))
             db.ComplaintNotes.Add(new ComplaintNote { ComplaintId = id, AuthorId = actorId, NoteType = "PublicReply", Content = note, CreatedAt = DateTime.UtcNow });
 
@@ -89,6 +106,15 @@ public class ComplaintService(
             ["ReferenceNumber"] = complaint.ReferenceNumber,
             ["Status"] = newStatus
         }, ct);
+
+        var webhookEvent = newStatus is "Closed" or "Resolved" ? "complaint.closed" : "complaint.status_changed";
+        var statusPayload = new { referenceNumber = complaint.ReferenceNumber, oldStatus, newStatus, updatedAt = complaint.UpdatedAt };
+        _ = Task.Run(async () =>
+        {
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var wh = scope.ServiceProvider.GetRequiredService<IWebhookService>();
+            await wh.TriggerAsync(webhookEvent, statusPayload);
+        }, CancellationToken.None);
     }
 
     public async Task ClaimAsync(int id, int staffId, CancellationToken ct = default)
@@ -101,6 +127,11 @@ public class ComplaintService(
         complaint.AssignedAt = DateTime.UtcNow;
         complaint.Status = "InProgress";
         complaint.UpdatedAt = DateTime.UtcNow;
+        db.ComplaintNotes.Add(new ComplaintNote
+        {
+            ComplaintId = id, AuthorId = staffId, NoteType = "StatusChange",
+            Content = "Pending→InProgress", CreatedAt = DateTime.UtcNow
+        });
         await db.SaveChangesAsync(ct);
         await auditService.LogAsync("ClaimCase", staffId, null, "Complaint", id.ToString(), null, null, ct);
     }
@@ -129,16 +160,27 @@ public class ComplaintService(
     public async Task CloseAsync(int id, string resolutionNote, int actorId, CancellationToken ct = default)
         => await UpdateStatusAsync(id, "Closed", actorId, resolutionNote, ct);
 
+    public async Task ReopenAsync(int id, int actorId, CancellationToken ct = default)
+    {
+        var complaint = await db.Complaints.FindAsync([id], ct)
+            ?? throw new InvalidOperationException("Complaint not found");
+        if (complaint.Status != "Closed") throw new InvalidOperationException("Only closed complaints can be reopened");
+
+        complaint.Status = "InProgress";
+        complaint.ClosedAt = null;
+        complaint.UpdatedAt = DateTime.UtcNow;
+        db.ComplaintNotes.Add(new ComplaintNote
+        {
+            ComplaintId = id, AuthorId = actorId, NoteType = "StatusChange",
+            Content = "Closed→InProgress (เปิดใหม่)", CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync(ct);
+        await auditService.LogAsync("ReopenCase", actorId, null, "Complaint", id.ToString(), null, null, ct);
+    }
+
     public async Task<IReadOnlyList<Models.Complaint>> GetQueueAsync(ComplaintQueueFilter filter, CancellationToken ct = default)
     {
-        var q = db.Complaints.Include(c => c.Category).Include(c => c.AssignedTo).AsQueryable();
-
-        if (!string.IsNullOrEmpty(filter.Status)) q = q.Where(c => c.Status == filter.Status);
-        if (filter.CategoryId.HasValue) q = q.Where(c => c.CategoryId == filter.CategoryId);
-        if (!string.IsNullOrEmpty(filter.Priority)) q = q.Where(c => c.Priority == filter.Priority);
-        if (filter.FromDate.HasValue) q = q.Where(c => c.CreatedAt >= filter.FromDate);
-        if (filter.ToDate.HasValue) q = q.Where(c => c.CreatedAt <= filter.ToDate);
-        if (filter.AssignedToId.HasValue) q = q.Where(c => c.AssignedToId == filter.AssignedToId);
+        var q = ApplyFilter(db.Complaints.Include(c => c.Category).Include(c => c.AssignedTo).AsQueryable(), filter);
 
         return await q.OrderByDescending(c => c.Priority == "Critical")
             .ThenByDescending(c => c.Priority == "Urgent")
@@ -148,16 +190,190 @@ public class ComplaintService(
             .ToListAsync(ct);
     }
 
+    public async Task<int> GetTotalCountAsync(ComplaintQueueFilter filter, CancellationToken ct = default)
+        => await ApplyFilter(db.Complaints.AsQueryable(), filter).CountAsync(ct);
+
+    public async Task AddNoteAsync(int id, int authorId, string noteType, string content, CancellationToken ct = default)
+    {
+        db.ComplaintNotes.Add(new ComplaintNote
+        {
+            ComplaintId = id,
+            AuthorId = authorId,
+            NoteType = noteType,
+            Content = content,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync(ct);
+        await auditService.LogAsync("AddNote", authorId, null, "Complaint", id.ToString(), new { noteType }, null, ct);
+    }
+
+    public async Task<DashboardStats> GetDashboardStatsAsync(CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var todayStart = now.Date;
+        var yesterdayStart = todayStart.AddDays(-1);
+        var sevenDaysAgo = todayStart.AddDays(-6);
+        var slaWarnBefore = now.AddHours(24);
+        var thaiCulture = new System.Globalization.CultureInfo("th-TH");
+
+        var todayCount = await db.Complaints.CountAsync(c => c.CreatedAt >= todayStart, ct);
+        var yesterdayCount = await db.Complaints.CountAsync(c => c.CreatedAt >= yesterdayStart && c.CreatedAt < todayStart, ct);
+
+        var activeStatuses = new[] { "Pending", "InProgress" };
+        var activeComplaints = await db.Complaints
+            .Where(c => activeStatuses.Contains(c.Status))
+            .Select(c => new { c.AssignedToId, c.SlaDeadline, c.SlaBreached, c.Status })
+            .ToListAsync(ct);
+
+        var inProgressCount = activeComplaints.Count(c => c.Status == "InProgress");
+        var assignedCount = activeComplaints.Count(c => c.AssignedToId.HasValue);
+        var unassignedCount = activeComplaints.Count(c => !c.AssignedToId.HasValue);
+        var slaBreachedCount = activeComplaints.Count(c => c.SlaBreached);
+        var slaWarningCount = activeComplaints.Count(c =>
+            !c.SlaBreached && c.SlaDeadline.HasValue && c.SlaDeadline <= slaWarnBefore);
+
+        var recentDates = await db.Complaints
+            .Where(c => c.CreatedAt >= sevenDaysAgo)
+            .Select(c => c.CreatedAt)
+            .ToListAsync(ct);
+
+        var chartLabels = new List<string>();
+        var chartData = new List<int>();
+        for (var i = 6; i >= 0; i--)
+        {
+            var day = todayStart.AddDays(-i);
+            chartLabels.Add(day.ToString("d MMM", thaiCulture));
+            chartData.Add(recentDates.Count(d => d.Date == day.Date));
+        }
+
+        var warningComplaints = await db.Complaints
+            .Include(c => c.Category)
+            .Where(c => (c.SlaBreached || (c.SlaDeadline.HasValue && c.SlaDeadline <= slaWarnBefore))
+                     && activeStatuses.Contains(c.Status))
+            .OrderBy(c => c.SlaDeadline)
+            .Take(10)
+            .ToListAsync(ct);
+
+        var slaWarningItems = warningComplaints.Select(c =>
+        {
+            string remaining;
+            if (c.SlaBreached || (c.SlaDeadline.HasValue && c.SlaDeadline < now))
+                remaining = "เกิน SLA แล้ว";
+            else if (c.SlaDeadline.HasValue)
+            {
+                var diff = c.SlaDeadline.Value - now;
+                remaining = diff.TotalHours < 1
+                    ? $"เหลือ {(int)diff.TotalMinutes} นาที"
+                    : $"เหลือ {(int)diff.TotalHours} ชั่วโมง";
+            }
+            else
+                remaining = "-";
+
+            return new SlaWarningItem(
+                c.Id,
+                c.ReferenceNumber,
+                c.Category.Name,
+                c.ReporterName,
+                c.SlaBreached || (c.SlaDeadline.HasValue && c.SlaDeadline < now),
+                remaining);
+        }).ToList();
+
+        var activeStatuses2 = new[] { "Pending", "InProgress" };
+        var categoryBreakdown = await db.Complaints
+            .GroupBy(c => c.Category.Name)
+            .Select(g => new
+            {
+                Name = g.Key,
+                Total = g.Count(),
+                Active = g.Count(x => activeStatuses2.Contains(x.Status))
+            })
+            .OrderByDescending(x => x.Total)
+            .Take(5)
+            .ToListAsync(ct);
+
+        var categoryBreakdownItems = categoryBreakdown
+            .Select(x => new CategoryBreakdownItem(x.Name, x.Total, x.Active))
+            .ToList();
+
+        return new DashboardStats(
+            todayCount, yesterdayCount, inProgressCount, assignedCount, unassignedCount,
+            slaWarningCount, slaBreachedCount, chartLabels, chartData, slaWarningItems,
+            categoryBreakdownItems);
+    }
+
+    public async Task<IReadOnlyList<WorkloadItem>> GetWorkloadAsync(CancellationToken ct = default)
+    {
+        var activeStatuses = new[] { "Pending", "InProgress" };
+
+        var staff = await db.StaffUsers
+            .Where(u => u.IsActive && u.Role == "GeneralOfficer")
+            .Select(u => new
+            {
+                u.Id,
+                u.FullName,
+                OpenCases = u.AssignedComplaints.Count(c => activeStatuses.Contains(c.Status))
+            })
+            .OrderByDescending(u => u.OpenCases)
+            .ToListAsync(ct);
+
+        var maxCases = staff.Any() ? Math.Max(staff.Max(u => u.OpenCases), 1) : 1;
+
+        return staff.Select(u => new WorkloadItem(
+            u.Id,
+            u.FullName,
+            string.Concat(u.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(w => w[0])).ToUpper(),
+            u.OpenCases,
+            (int)Math.Round((double)u.OpenCases / maxCases * 100)
+        )).ToList();
+    }
+
+    public async Task SubmitSatisfactionAsync(string referenceNumber, byte score, string? note, CancellationToken ct = default)
+    {
+        var complaint = await db.Complaints.FirstOrDefaultAsync(c => c.ReferenceNumber == referenceNumber, ct)
+            ?? throw new InvalidOperationException("Complaint not found");
+        if (complaint.SatisfactionScore.HasValue) throw new InvalidOperationException("Already rated");
+        if (score < 1 || score > 5) throw new ArgumentOutOfRangeException(nameof(score), "Score must be 1–5");
+
+        complaint.SatisfactionScore = score;
+        complaint.SatisfactionNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+        complaint.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+    }
+
+    private IQueryable<Models.Complaint> ApplyFilter(IQueryable<Models.Complaint> q, ComplaintQueueFilter filter)
+    {
+        if (!string.IsNullOrEmpty(filter.Status)) q = q.Where(c => c.Status == filter.Status);
+        if (filter.CategoryId.HasValue) q = q.Where(c => c.CategoryId == filter.CategoryId);
+        if (!string.IsNullOrEmpty(filter.Priority)) q = q.Where(c => c.Priority == filter.Priority);
+        if (filter.FromDate.HasValue) q = q.Where(c => c.CreatedAt >= filter.FromDate);
+        if (filter.ToDate.HasValue) q = q.Where(c => c.CreatedAt <= filter.ToDate);
+        if (filter.AssignedToId.HasValue) q = q.Where(c => c.AssignedToId == filter.AssignedToId);
+        if (!string.IsNullOrEmpty(filter.Search))
+            q = q.Where(c => c.ReferenceNumber.Contains(filter.Search) || c.ReporterName.Contains(filter.Search));
+        return q;
+    }
+
     private async Task<string> GenerateReferenceNumberAsync(CancellationToken ct)
     {
         var thYear = DateTime.UtcNow.Year + 543;
-        var count = await db.Complaints.CountAsync(ct) + 1;
-        return $"GEN-{thYear}-{count:D5}";
+        var seq = await NextSequenceAsync("dbo.ComplaintSeq", ct);
+        return $"SRT-COMPL-{thYear}-{seq:D4}";
+    }
+
+    private async Task<long> NextSequenceAsync(string sequenceName, CancellationToken ct)
+    {
+        var conn = db.Database.GetDbConnection();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"SELECT NEXT VALUE FOR {sequenceName}";
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync(ct);
+        return Convert.ToInt64(await cmd.ExecuteScalarAsync(ct));
     }
 
     private async Task SaveAttachmentsAsync(int complaintId, IReadOnlyList<IFormFile> files, CancellationToken ct)
     {
         var storagePath = config["FileUpload:StoragePath"] ?? Path.GetTempPath();
+        Directory.CreateDirectory(storagePath);
         foreach (var file in files)
         {
             if (file.Length == 0) continue;

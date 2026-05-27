@@ -1,0 +1,187 @@
+@page
+@model SRT.Complaint.Pages.Corruption.DashboardModel
+@{
+    ViewData["Title"] = "แดชบอร์ดทุจริต";
+    var s = Model.Stats;
+    var todayChange = s.YesterdayCount == 0
+        ? (s.TodayCount > 0 ? 100 : 0)
+        : (int)Math.Round((double)(s.TodayCount - s.YesterdayCount) / s.YesterdayCount * 100);
+    var changeSign  = todayChange >= 0 ? "+" : "";
+    var changeColor = todayChange >= 0 ? "text-green-600" : "text-red-500";
+    var changeArrow = todayChange >= 0 ? "↑" : "↓";
+}
+
+<!-- ══ Security banner ══ -->
+<div class="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 mb-5 text-sm text-amber-800">
+    <svg class="w-4 h-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
+    <span>
+        <strong>ช่องทางลับ — ข้อมูลผู้แจ้งถูกเข้ารหัส AES-256</strong>
+        การเข้าถึงข้อมูลผู้แจ้งทุกครั้งจะถูกบันทึกใน Audit Log
+    </span>
+</div>
+
+<!-- ══ Stat Cards ══ -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+    <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">รับวันนี้</p>
+        <p class="text-3xl font-bold text-srt-navy mt-1">@s.TodayCount</p>
+        <p class="text-xs text-gray-400 mt-1">
+            <span class="@changeColor font-medium">@changeArrow @changeSign@todayChange%</span>
+            จากเมื่อวาน
+        </p>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">รอดำเนินการ</p>
+        <p class="text-3xl font-bold text-amber-600 mt-1">@s.PendingCount</p>
+        <p class="text-xs text-gray-400 mt-1">กำลังสืบสวน @s.InProgressCount เรื่อง</p>
+    </div>
+
+    <div class="bg-white rounded-xl border border-amber-200 p-4 shadow-sm">
+        <p class="text-xs font-medium text-amber-600 uppercase tracking-wide">ใกล้ครบ SLA</p>
+        <p class="text-3xl font-bold text-amber-600 mt-1">@s.SlaWarningCount</p>
+        <p class="text-xs text-gray-400 mt-1">เหลือน้อยกว่า 24 ชั่วโมง</p>
+    </div>
+
+    <div class="bg-white rounded-xl border p-4 shadow-sm
+                @(s.SlaBreachedCount > 0 ? "border-red-300 bg-red-50" : "border-gray-200")">
+        <p class="text-xs font-medium @(s.SlaBreachedCount > 0 ? "text-red-600" : "text-gray-500") uppercase tracking-wide">
+            เกิน SLA
+        </p>
+        <p class="text-3xl font-bold text-red-600 mt-1">@s.SlaBreachedCount</p>
+        @if (s.SlaBreachedCount > 0)
+        {
+            <p class="text-xs text-red-500 mt-1 font-medium">⚠ ต้องดำเนินการด่วน</p>
+        }
+        else
+        {
+            <p class="text-xs text-gray-400 mt-1">ปกติ</p>
+        }
+    </div>
+
+</div>
+
+<!-- ══ Chart + SLA Warning ══ -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+    <!-- 7-day Bar Chart -->
+    <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-sm font-semibold text-gray-900">จำนวนเรื่องแจ้งทุจริต 7 วันล่าสุด</h2>
+            <span class="text-xs text-gray-400">อัปเดตทุกครั้งที่โหลด</span>
+        </div>
+        <canvas id="weeklyChart" height="90"></canvas>
+    </div>
+
+    <!-- SLA Warning List — shows subject info ONLY, no reporter info -->
+    <div class="bg-white rounded-xl border border-amber-200 p-5 shadow-sm">
+        <h2 class="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <svg class="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            เรื่องใกล้ครบ / เกิน SLA
+        </h2>
+
+        @if (!s.SlaWarningItems.Any())
+        {
+            <p class="text-sm text-gray-400 text-center py-6">ไม่มีเรื่องที่ใกล้ครบ SLA</p>
+        }
+        else
+        {
+            <div class="space-y-2 max-h-64 overflow-y-auto">
+                @foreach (var item in s.SlaWarningItems)
+                {
+                    <div class="flex items-center gap-2 p-2.5 rounded-lg
+                                @(item.SlaBreached ? "bg-red-50 border border-red-200" : "bg-amber-50 border border-amber-100")">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-medium text-gray-900 font-mono">@item.ReferenceNumber</p>
+                            <p class="text-xs text-gray-500 truncate">
+                                @item.SubjectType
+                                @if (!string.IsNullOrEmpty(item.SubjectPersonName))
+                                { <text>· @item.SubjectPersonName</text> }
+                            </p>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <p class="text-xs font-medium @(item.SlaBreached ? "text-red-600" : "text-amber-600")">
+                                @item.SlaRemainingText
+                            </p>
+                            <a asp-page="/Corruption/CaseDetail" asp-route-id="@item.Id"
+                               class="text-xs text-srt-navy hover:underline">ดู →</a>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+</div>
+
+<!-- ══ Quick links ══ -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <a asp-page="/Corruption/Queue"
+       class="flex items-center gap-4 bg-white rounded-xl border border-gray-200 shadow-sm p-4 hover:border-srt-navy/40 hover:shadow-md transition group">
+        <div class="w-10 h-10 bg-srt-navy/10 rounded-lg flex items-center justify-center group-hover:bg-srt-navy/20 transition">
+            <svg class="w-5 h-5 text-srt-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+        </div>
+        <div>
+            <p class="text-sm font-semibold text-gray-900">คิวเรื่องทุจริต</p>
+            <p class="text-xs text-gray-500">รายการเรื่องที่รอดำเนินการ</p>
+        </div>
+        <svg class="w-4 h-4 text-gray-400 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+    </a>
+
+    <div class="flex items-center gap-4 bg-amber-50 rounded-xl border border-amber-200 p-4">
+        <div class="w-10 h-10 bg-amber-100 rounded-lg flex items-center justify-center">
+            <svg class="w-5 h-5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+        </div>
+        <div>
+            <p class="text-sm font-semibold text-amber-900">ข้อมูลผู้แจ้งเป็นความลับ</p>
+            <p class="text-xs text-amber-700">ต้องระบุเหตุผลทุกครั้งที่ขอดู — บันทึก Audit Log</p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+    <script>
+    (function () {
+        const ctx = document.getElementById('weeklyChart');
+        if (!ctx) return;
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats.ChartLabels)),
+                datasets: [{
+                    label: 'จำนวนเรื่อง',
+                    data: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Stats.ChartData)),
+                    backgroundColor: '#B45309',
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: '#F3F4F6' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+        setTimeout(() => location.reload(), 60000);
+    })();
+    </script>
+}

@@ -1,0 +1,36 @@
+## .NET / ASP.NET Core
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.log
+
+## Logs
+SRT.Complaint/logs/
+
+## Published output
+publish/
+out/
+
+## Local config (secrets / keys — ห้าม commit)
+appsettings.Production.json
+appsettings.*.local.json
+
+## OS / Editor
+.DS_Store
+Thumbs.db
+desktop.ini
+
+## Screenshots / temp files in root
+*.png
+*.jpg
+*.jpeg
+*.svg.png
+"New Text Document.txt"
+
+## Design assets
+design-system/
+
+## Claude local settings
+.claude/settings.local.json

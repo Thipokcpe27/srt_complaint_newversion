@@ -1,0 +1,83 @@
+@page
+@model SRT.Complaint.Pages.Admin.SlaSettingsModel
+@{
+    ViewData["Title"] = "SLA Settings";
+}
+
+<div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-5 text-sm text-blue-800 flex gap-2">
+    <svg class="w-4 h-4 shrink-0 mt-0.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <span>การเปลี่ยนแปลงค่า SLA จะมีผลกับเรื่องร้องเรียน <strong>ใหม่</strong> เท่านั้น — เรื่องที่มีอยู่แล้วจะใช้ค่าเดิม</span>
+</div>
+
+<form method="post" asp-page-handler="Save">
+    @Html.AntiForgeryToken()
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mb-5">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 text-xs text-gray-600 text-left">
+                    <th class="px-5 py-3 font-semibold border-b border-gray-200">Priority</th>
+                    <th class="px-5 py-3 font-semibold border-b border-gray-200">ชั่วโมงที่ต้องปิดเรื่อง</th>
+                    <th class="px-5 py-3 font-semibold border-b border-gray-200">Auto-Assign หลัง (ชม.)</th>
+                    <th class="px-5 py-3 font-semibold border-b border-gray-200">เตือนเมื่อเหลือ (%)</th>
+                    <th class="px-5 py-3 font-semibold border-b border-gray-200">อัปเดตล่าสุด</th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (int i = 0; i < Model.SlaConfigs.Count; i++)
+                {
+                    var cfg = Model.SlaConfigs[i];
+                    <tr class="border-b border-gray-100 last:border-b-0 hover:bg-gray-50/30">
+                        <td class="px-5 py-4">
+                            <input type="hidden" name="Configs[@i].Id" value="@cfg.Id" />
+                            <div class="font-medium text-gray-900">@cfg.LabelTh</div>
+                            <div class="text-xs text-gray-400 font-mono mt-0.5">@cfg.Priority</div>
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="flex items-center gap-2">
+                                <input type="number" name="Configs[@i].ResolutionHours"
+                                       value="@cfg.ResolutionHours" min="1" max="8760" required
+                                       class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm text-center
+                                              focus:outline-none focus:border-srt-navy" />
+                                <span class="text-xs text-gray-500">ชม.
+                                    <span class="text-gray-400">(≈ @Math.Round(cfg.ResolutionHours / 24.0, 1) วัน)</span>
+                                </span>
+                            </div>
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="flex items-center gap-2">
+                                <input type="number" name="Configs[@i].AutoAssignAfterHours"
+                                       value="@cfg.AutoAssignAfterHours" min="1" max="168" required
+                                       class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm text-center
+                                              focus:outline-none focus:border-srt-navy" />
+                                <span class="text-xs text-gray-500">ชม.</span>
+                            </div>
+                        </td>
+                        <td class="px-5 py-4">
+                            <div class="flex items-center gap-2">
+                                <input type="number" name="Configs[@i].WarningThresholdPercent"
+                                       value="@cfg.WarningThresholdPercent" min="10" max="99" required
+                                       class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm text-center
+                                              focus:outline-none focus:border-srt-navy" />
+                                <span class="text-xs text-gray-500">%</span>
+                            </div>
+                        </td>
+                        <td class="px-5 py-4 text-xs text-gray-400">
+                            @cfg.UpdatedAt.ToLocalTime().ToString("dd/MM/yy HH:mm")
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="flex justify-end">
+        <button type="submit"
+                class="bg-srt-navy text-white px-6 py-2.5 rounded-lg text-sm font-medium
+                       hover:bg-srt-navy-dark transition">
+            บันทึกการตั้งค่า SLA
+        </button>
+    </div>
+</form>

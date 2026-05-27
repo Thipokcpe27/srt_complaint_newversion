@@ -1,0 +1,337 @@
+@page
+@model SRT.Complaint.Pages.Admin.UsersModel
+@{
+    ViewData["Title"] = "จัดการเจ้าหน้าที่";
+}
+
+<!-- ══ Edit Form (shown when editId query param is set) ══ -->
+@if (Model.EditTarget != null)
+{
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-5">
+        <h2 class="text-sm font-semibold text-blue-900 mb-4">แก้ไขข้อมูล: @Model.EditTarget.FullName (@Model.EditTarget.EmployeeCode)</h2>
+        <form method="post" asp-page-handler="Edit" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="EditUserId" value="@Model.EditTarget.Id" />
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">ชื่อ-นามสกุล</label>
+                <input name="EditFullName" value="@Model.EditTarget.FullName" required
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Email</label>
+                <input name="EditEmail" type="email" value="@Model.EditTarget.Email"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">บทบาท</label>
+                <select name="EditRole" required
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy">
+                    <option value="GeneralOfficer"    selected="@(Model.EditTarget.Role == "GeneralOfficer")">เจ้าหน้าที่ทั่วไป</option>
+                    <option value="CorruptionOfficer" selected="@(Model.EditTarget.Role == "CorruptionOfficer")">เจ้าหน้าที่ทุจริต</option>
+                    <option value="SuperAdmin"        selected="@(Model.EditTarget.Role == "SuperAdmin")">ผู้ดูแลระบบ</option>
+                </select>
+            </div>
+            <div class="flex flex-col justify-end gap-3">
+                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" name="EditIsActive" value="true"
+                           @(Model.EditTarget.IsActive ? "checked" : "")
+                           class="w-4 h-4 rounded border-gray-300 text-srt-navy focus:ring-srt-navy" />
+                    ใช้งานได้
+                </label>
+                <div class="flex gap-2">
+                    <button type="submit"
+                            class="bg-srt-navy text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-srt-navy-dark transition">
+                        บันทึก
+                    </button>
+                    <a asp-page="/Admin/Users" asp-route-search="@Model.Search" asp-route-roleFilter="@Model.RoleFilter"
+                       class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition">
+                        ยกเลิก
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+}
+
+<!-- ══ Filter Bar ══ -->
+<form method="get" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-5">
+    <div class="flex flex-wrap items-end gap-3">
+        <div class="flex-1 min-w-[180px]">
+            <label class="block text-xs font-medium text-gray-600 mb-1">ค้นหา</label>
+            <input name="search" value="@Model.Search" placeholder="ชื่อ หรือ รหัสพนักงาน"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">บทบาท</label>
+            <select name="roleFilter"
+                    class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy">
+                <option value="">ทุกบทบาท</option>
+                <option value="GeneralOfficer"    selected="@(Model.RoleFilter == "GeneralOfficer")">เจ้าหน้าที่ทั่วไป</option>
+                <option value="CorruptionOfficer" selected="@(Model.RoleFilter == "CorruptionOfficer")">เจ้าหน้าที่ทุจริต</option>
+                <option value="SuperAdmin"        selected="@(Model.RoleFilter == "SuperAdmin")">ผู้ดูแลระบบ</option>
+            </select>
+        </div>
+        <button type="submit"
+                class="bg-srt-navy text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-srt-navy-dark transition">
+            ค้นหา
+        </button>
+        <span class="text-sm text-gray-500 ml-auto py-2">
+            ทั้งหมด <strong class="text-gray-900">@Model.TotalCount</strong> คน
+        </span>
+    </div>
+</form>
+
+<!-- ══ Staff Table ══ -->
+<div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white mb-5">
+    <table class="w-full text-sm border-collapse">
+        <thead>
+            <tr class="bg-gray-50 text-gray-600 text-left text-xs">
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">รหัสพนักงาน</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">ชื่อ-นามสกุล</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">Email</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">บทบาท</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">สถานะ</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200">เข้าสู่ระบบล่าสุด</th>
+                <th class="px-4 py-3 border-b border-gray-200 w-40"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Users.Any())
+            {
+                <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-gray-400 text-sm">ไม่พบเจ้าหน้าที่</td>
+                </tr>
+            }
+            @foreach (var u in Model.Users)
+            {
+                <tr class="hover:bg-gray-50/50 border-b border-gray-100 last:border-b-0 @(!u.IsActive ? "opacity-50" : "")">
+                    <td class="px-4 py-3 font-mono text-xs font-medium text-srt-navy">@u.EmployeeCode</td>
+                    <td class="px-4 py-3 font-medium text-gray-900">@u.FullName</td>
+                    <td class="px-4 py-3 text-gray-500 text-xs">@(u.Email ?? "—")</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                            @(u.Role == "SuperAdmin"        ? "bg-red-100 text-red-800" :
+                              u.Role == "CorruptionOfficer" ? "bg-amber-100 text-amber-800" :
+                                                              "bg-blue-100 text-blue-800")">
+                            @UsersModel.RoleLabel(u.Role)
+                        </span>
+                    </td>
+                    <td class="px-4 py-3">
+                        @if (u.IsActive)
+                        {
+                            <span class="flex items-center gap-1 text-xs text-green-700">
+                                <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> ใช้งานได้
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="flex items-center gap-1 text-xs text-gray-400">
+                                <span class="w-1.5 h-1.5 rounded-full bg-gray-300"></span> ปิดใช้งาน
+                            </span>
+                        }
+                    </td>
+                    <td class="px-4 py-3 text-xs text-gray-400">
+                        @(u.LastLoginAt.HasValue ? u.LastLoginAt.Value.ToLocalTime().ToString("dd/MM/yy HH:mm") : "—")
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        <div class="flex items-center justify-end gap-2">
+                            <!-- Edit -->
+                            <a asp-page="/Admin/Users"
+                               asp-route-editId="@u.Id"
+                               asp-route-search="@Model.Search"
+                               asp-route-roleFilter="@Model.RoleFilter"
+                               asp-route-currentPage="@Model.CurrentPage"
+                               class="text-xs text-srt-navy hover:underline font-medium">แก้ไข</a>
+
+                            <!-- Toggle Active -->
+                            <form method="post" asp-page-handler="ToggleActive" asp-route-id="@u.Id" class="inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit"
+                                        onclick="return confirm('@(u.IsActive ? "ปิดใช้งาน" : "เปิดใช้งาน") @u.FullName ?')"
+                                        class="text-xs @(u.IsActive ? "text-red-600 hover:text-red-800" : "text-green-600 hover:text-green-800") font-medium">
+                                    @(u.IsActive ? "ปิดใช้" : "เปิดใช้")
+                                </button>
+                            </form>
+
+                            <!-- Reset Password -->
+                            <form method="post" asp-page-handler="ResetPassword" class="inline"
+                                  onsubmit="return confirm('รีเซ็ตรหัสผ่านของ @u.FullName ?\nระบบจะสร้างรหัสผ่านชั่วคราวให้อัตโนมัติ')">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="ResetUserId" value="@u.Id" />
+                                <button type="submit"
+                                        class="text-xs text-orange-600 hover:text-orange-800 font-medium">
+                                    รีเซ็ต PW
+                                </button>
+                            </form>
+
+                            <!-- View Temp Password (only when MustChangePassword and encrypted pw exists) -->
+                            @if (u.MustChangePassword && u.TempPasswordEncrypted != null
+                                 && u.TempPasswordExpiresAt.HasValue && u.TempPasswordExpiresAt.Value > DateTime.UtcNow)
+                            {
+                                <form method="post" asp-page-handler="ViewPassword" class="inline">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="ViewPasswordUserId" value="@u.Id" />
+                                    <button type="submit"
+                                            class="text-xs text-purple-600 hover:text-purple-800 font-medium">
+                                        ดูรหัสผ่าน
+                                    </button>
+                                </form>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- ══ Pagination ══ -->
+@if (Model.TotalPages > 1)
+{
+    <div class="flex items-center justify-between mb-6">
+        <p class="text-sm text-gray-500">แสดง @Model.PageStart–@Model.PageEnd จาก @Model.TotalCount คน</p>
+        <div class="flex gap-1">
+            @if (Model.CurrentPage > 1)
+            {
+                <a asp-page="/Admin/Users" asp-route-currentPage="@(Model.CurrentPage-1)" asp-route-search="@Model.Search" asp-route-roleFilter="@Model.RoleFilter"
+                   class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">← ก่อนหน้า</a>
+            }
+            @for (int p = Math.Max(1, Model.CurrentPage - 2); p <= Math.Min(Model.TotalPages, Model.CurrentPage + 2); p++)
+            {
+                <a asp-page="/Admin/Users" asp-route-currentPage="@p" asp-route-search="@Model.Search" asp-route-roleFilter="@Model.RoleFilter"
+                   class="px-3 py-1.5 text-sm rounded-lg @(p == Model.CurrentPage ? "bg-srt-navy text-white" : "border border-gray-300 hover:bg-gray-50")">@p</a>
+            }
+            @if (Model.CurrentPage < Model.TotalPages)
+            {
+                <a asp-page="/Admin/Users" asp-route-currentPage="@(Model.CurrentPage+1)" asp-route-search="@Model.Search" asp-route-roleFilter="@Model.RoleFilter"
+                   class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">ถัดไป →</a>
+            }
+        </div>
+    </div>
+}
+
+@* ══ Temp Password Modal ══ *@
+@if (TempData["TempPassword"] is string tempPw)
+{
+    var pwTarget  = TempData["TempPwTarget"]  as string ?? "";
+    var pwExpires = TempData["TempPwExpires"] as string ?? "";
+
+    <div id="tempPwModal"
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+         role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 overflow-hidden">
+
+            <!-- Header -->
+            <div class="bg-amber-500 px-6 py-4 flex items-center gap-3">
+                <svg class="w-6 h-6 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                </svg>
+                <div>
+                    <h2 id="modalTitle" class="text-white font-bold text-base leading-tight">รหัสผ่านชั่วคราว</h2>
+                    <p class="text-amber-100 text-xs">@pwTarget</p>
+                </div>
+            </div>
+
+            <!-- Body -->
+            <div class="px-6 py-5">
+                <p class="text-xs text-gray-500 mb-3 text-center">
+                    กรุณาแจ้งรหัสผ่านนี้ให้พนักงานก่อนปิดหน้าต่าง<br/>
+                    พนักงานจะถูกบังคับให้เปลี่ยนรหัสผ่านเมื่อล็อกอินครั้งแรก
+                </p>
+
+                <!-- Password display -->
+                <div class="bg-gray-50 border-2 border-dashed border-amber-300 rounded-xl p-4 text-center mb-4">
+                    <p id="tempPwDisplay"
+                       class="text-3xl font-mono font-bold text-gray-900 tracking-[0.2em] select-all">@tempPw</p>
+                </div>
+
+                <!-- Expiry warning -->
+                <div class="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-4">
+                    <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>หมดอายุ: <strong>@pwExpires</strong> (8 ชั่วโมงนับจากนี้)</span>
+                </div>
+
+                <!-- Buttons -->
+                <button type="button" onclick="copyTempPw()"
+                        id="copyBtn"
+                        class="w-full mb-2 py-2.5 px-4 bg-srt-navy text-white rounded-xl text-sm font-semibold hover:bg-srt-navy-dark transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                    </svg>
+                    คัดลอกรหัสผ่าน
+                </button>
+                <button type="button" onclick="closeTempPwModal()"
+                        class="w-full py-2.5 px-4 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition">
+                    รับทราบแล้ว — ปิดหน้าต่าง
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function copyTempPw() {
+            const pw = document.getElementById('tempPwDisplay').textContent.trim();
+            navigator.clipboard.writeText(pw).then(() => {
+                const btn = document.getElementById('copyBtn');
+                btn.textContent = '✓ คัดลอกแล้ว';
+                btn.classList.replace('bg-srt-navy', 'bg-green-600');
+                setTimeout(() => {
+                    btn.innerHTML = '<svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>คัดลอกรหัสผ่าน';
+                    btn.classList.replace('bg-green-600', 'bg-srt-navy');
+                }, 2000);
+            });
+        }
+        function closeTempPwModal() {
+            document.getElementById('tempPwModal').remove();
+        }
+        // Prevent closing by clicking backdrop
+        document.getElementById('tempPwModal').addEventListener('click', function(e) {
+            if (e.target === this) e.stopPropagation();
+        });
+    </script>
+}
+
+<!-- ══ Create New User Form ══ -->
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-gray-900 mb-1">เพิ่มเจ้าหน้าที่ใหม่</h2>
+    <p class="text-xs text-gray-400 mb-4">ระบบจะสร้างรหัสผ่านชั่วคราวอัตโนมัติ — พนักงานต้องเปลี่ยนเมื่อล็อคอินครั้งแรก</p>
+    <form method="post" asp-page-handler="Create" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        @Html.AntiForgeryToken()
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">รหัสพนักงาน (7 หลัก) <span class="text-red-500">*</span></label>
+            <input name="NewEmployeeCode" required maxlength="7" pattern="[0-9]{7}" placeholder="0000000"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-srt-navy" />
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">ชื่อ-นามสกุล <span class="text-red-500">*</span></label>
+            <input name="NewFullName" required placeholder="ชื่อ นามสกุล"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Email</label>
+            <input name="NewEmail" type="email" placeholder="email@railway.co.th"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">บทบาท <span class="text-red-500">*</span></label>
+            <div class="flex gap-2">
+                <select name="NewRole" required
+                        class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy">
+                    <option value="">เลือกบทบาท</option>
+                    <option value="GeneralOfficer">เจ้าหน้าที่ทั่วไป</option>
+                    <option value="CorruptionOfficer">เจ้าหน้าที่ทุจริต</option>
+                    <option value="SuperAdmin">ผู้ดูแลระบบ</option>
+                </select>
+                <button type="submit"
+                        class="bg-srt-navy text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-srt-navy-dark transition whitespace-nowrap">
+                    + เพิ่ม
+                </button>
+            </div>
+        </div>
+    </form>
+</div>

@@ -11,4 +11,5 @@ public class ComplaintCategory
     public int SortOrder { get; set; }
 
     public ICollection<Complaint> Complaints { get; set; } = new List<Complaint>();
+    public ICollection<ComplaintSubCategory> SubCategories { get; set; } = new List<ComplaintSubCategory>();
 }

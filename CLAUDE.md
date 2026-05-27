@@ -118,6 +118,52 @@ dotnet ef database update --project SRT.Complaint
 dotnet ef migrations add MigrationName --project SRT.Complaint
 ```
 
+## Migration Process (บังคับทำตามขั้นตอนนี้ทุกครั้ง)
+
+ทุกครั้งที่สร้าง Migration ใหม่ ให้ทำตามลำดับนี้เสมอ — ห้ามข้ามขั้นตอน:
+
+### ขั้นที่ 1: ตรวจสอบก่อน apply
+
+ก่อน `dotnet ef database update` ให้วิเคราะห์ migration file ที่สร้างขึ้นมาก่อนเสมอ โดยตรวจสอบประเด็นต่อไปนี้:
+
+1. **Cascade path (SQL Server ข้อจำกัด)**
+   - SQL Server ไม่อนุญาต `ON DELETE CASCADE` หรือ `ON DELETE SET NULL` ที่ทำให้เกิด multiple cascade paths ไปยัง table เดียวกัน
+   - ถ้า FK ใหม่ชี้ไปยัง table ที่มี cascade path อยู่แล้ว → ใช้ `DeleteBehavior.ClientSetNull` หรือ `DeleteBehavior.NoAction` แทน `SetNull` / `Cascade`
+   - Pattern ที่เสี่ยง: `Complaints → ComplaintCategories → ComplaintSubCategories → Complaints` (loop)
+
+2. **Breaking changes**
+   - Column ที่เปลี่ยน type หรือลด maxLength อาจทำให้ข้อมูลเดิมเสียหาย
+   - ลบ column ที่ยังมีข้อมูลอยู่
+
+3. **Index / Unique constraint ซ้ำ**
+   - ตรวจว่า migration ไม่พยายาม create index ที่มีอยู่แล้ว
+
+### ขั้นที่ 2: แจ้งผลการวิเคราะห์
+
+หลังตรวจสอบ migration file แล้ว **ให้หยุดและแจ้งผลก่อน** ในรูปแบบ:
+
+```
+✅ ตรวจสอบ migration แล้ว — ไม่พบปัญหา
+   - สร้างตาราง: [รายการ]
+   - เพิ่ม column: [รายการ]
+   - FK / cascade: [ระบุ behavior]
+   พร้อม apply — รอการยืนยัน
+```
+
+หรือถ้าพบปัญหา:
+
+```
+⚠️ พบปัญหาใน migration — ยังไม่ apply
+   สาเหตุ: [อธิบาย]
+   วิธีแก้: [วิธีแก้ไข AppDbContext / migration]
+```
+
+### ขั้นที่ 3: Apply เมื่อได้รับการยืนยัน
+
+```bash
+dotnet ef database update --project SRT.Complaint --context AppDbContext
+```
+
 ## Common Tasks
 
 ### สร้าง Razor Page ใหม่
@@ -198,6 +244,24 @@ GET    /api/complaints/{ref}/edoc-payload (Scope: complaints:edoc)
 - **ทุก Service ต้องมี Interface** — เพื่อ testability
 - **เรื่องทุจริตห้าม share code กับเรื่องทั่วไป** — แม้ว่า logic คล้ายกัน
 - **Secret/Key ห้ามอยู่ใน code** — ต้องอยู่ใน Environment Variables หรือ `appsettings.Production.json` (ไม่ commit)
+
+## Operational Notes (สิ่งที่ต้องทำหลังแก้ไข/เพิ่มฟีเจอร์)
+
+ทุกครั้งที่มีการแก้ไขหรือเพิ่มฟีเจอร์ ให้เพิ่มหมายเหตุปฏิบัติการที่นี่ด้วย เพื่อให้คนที่ใช้งานระบบหรือ deploy รู้ว่าต้องทำอะไรเพิ่ม
+
+### ปุ่ม "ดูรหัสผ่าน" — Admin/Users (เพิ่ม 2026-05-26)
+
+**ฟีเจอร์:** ปุ่มสีม่วง "ดูรหัสผ่าน" จะแสดงในแถว user ที่ยัง `MustChangePassword = true` และรหัสผ่านยังไม่หมดอายุ ช่วยให้ Admin ดูรหัสผ่านชั่วคราวได้อีกครั้งหลังพลาดจาก modal ครั้งแรก
+
+**สิ่งที่ต้องทำหลัง deploy:**
+1. รัน migration: `dotnet ef database update --project SRT.Complaint --context AppDbContext`
+2. User เก่าที่สร้างก่อน migration นี้จะไม่มี `TempPasswordEncrypted` → ปุ่มจะไม่แสดง ต้องกด **"รีเซ็ต PW"** หนึ่งครั้งเพื่อให้ระบบ encrypt และเก็บรหัสผ่านใหม่
+
+**Production — Encryption Key:**
+- `Encryption:Key` ใน `appsettings.json` ต้องเป็น Base64 ของ random 32 bytes (AES-256)
+- Dev key ที่อยู่ใน `appsettings.json` ใช้ได้เฉพาะ local เท่านั้น
+- Production: สร้าง key ใหม่ด้วย `[Convert]::ToBase64String((1..32 | % { [byte](Get-Random -Max 256) }))` แล้วเก็บเป็น Environment Variable `Encryption__Key` ใน IIS — ห้าม commit key จริงลง Git
+- Key นี้ใช้ encrypt ทั้ง `TempPasswordEncrypted` (StaffUsers) และข้อมูลผู้แจ้งทุจริต (CorruptionReports) — ถ้าเปลี่ยน key จะ decrypt ข้อมูลเก่าไม่ได้
 
 ## Session Continuity
 

@@ -1,0 +1,374 @@
+@page
+@model SRT.Complaint.Pages.Public.SubmitCorruptionModel
+@{
+    ViewData["Title"] = "แจ้งเบาะแสทุจริต";
+    Layout = "_Layout";
+}
+
+<partial name="_TermsModal" model="Model.Terms" />
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+<div class="max-w-3xl mx-auto">
+
+    <!-- Header + Privacy Banner -->
+    <div class="mb-6">
+        <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
+                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">แจ้งเบาะแสทุจริต / ประพฤติมิชอบ</h1>
+                <p class="text-gray-500 text-sm mt-0.5">ช่องทางแจ้งเรื่องทุจริตโดยเฉพาะ — ข้อมูลผู้แจ้งถูกเข้ารหัสและเป็นความลับสูงสุด</p>
+            </div>
+        </div>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 items-start text-sm">
+            <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <div class="text-amber-800">
+                <strong>การคุ้มครองข้อมูลผู้แจ้ง:</strong> ข้อมูลส่วนตัวและเลขบัตรประชาชนของท่านจะถูกเข้ารหัส AES-256
+                เก็บแยกจากฐานข้อมูลหลัก เจ้าหน้าที่จะไม่สามารถเห็นข้อมูลจริงโดยไม่มีเหตุผลและการบันทึก
+            </div>
+        </div>
+    </div>
+
+<div id="form-content-wrapper" class="@(Model.Terms?.IsActive == true ? "hidden" : "")">
+    <form method="post" enctype="multipart/form-data" id="corruption-form" novalidate>
+        @Html.AntiForgeryToken()
+
+        <div asp-validation-summary="ModelOnly"
+             class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 [&:empty]:hidden">
+        </div>
+
+        <!-- Section 1: ข้อมูลผู้แจ้ง -->
+        <div class="card mb-6">
+            <div class="card-header">
+                <h2 class="font-semibold text-gray-800 flex items-center gap-2">
+                    <span class="w-6 h-6 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center shrink-0">1</span>
+                    ข้อมูลผู้แจ้ง
+                    <span class="text-xs text-amber-600 font-normal bg-amber-50 px-2 py-0.5 rounded-full ml-auto">ถูกเข้ารหัส</span>
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+                    <div class="sm:col-span-2">
+                        <label asp-for="Input.ReporterName" class="block text-sm font-medium text-gray-700 mb-1">
+                            ชื่อ-นามสกุล <span class="text-red-500" aria-hidden="true">*</span>
+                        </label>
+                        <input asp-for="Input.ReporterName" type="text" autocomplete="name"
+                               placeholder="ชื่อ นามสกุล (ไม่ต้องใส่คำนำหน้า)"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                                      focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 transition-colors" />
+                        <span asp-validation-for="Input.ReporterName" class="text-red-600 text-xs mt-1 block"></span>
+                    </div>
+
+                    <div>
+                        <label asp-for="Input.ReporterPhone" class="block text-sm font-medium text-gray-700 mb-1">
+                            เบอร์โทรศัพท์ <span class="text-red-500" aria-hidden="true">*</span>
+                        </label>
+                        <input asp-for="Input.ReporterPhone" type="tel" inputmode="numeric" autocomplete="tel"
+                               placeholder="081-234-5678"
+                               data-mask="phone" maxlength="12"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                                      focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 transition-colors" />
+                        <span asp-validation-for="Input.ReporterPhone" class="text-red-600 text-xs mt-1 block"></span>
+                    </div>
+
+                    <div>
+                        <label asp-for="Input.ReporterEmail" class="block text-sm font-medium text-gray-700 mb-1">
+                            อีเมล <span class="text-gray-400 font-normal">(ถ้ามี)</span>
+                        </label>
+                        <input asp-for="Input.ReporterEmail" type="email" autocomplete="email"
+                               placeholder="example@email.com"
+                               data-block="thai"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                                      focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 transition-colors" />
+                        <span asp-validation-for="Input.ReporterEmail" class="text-red-600 text-xs mt-1 block"></span>
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label asp-for="Input.ReporterIdCard" class="block text-sm font-medium text-gray-700 mb-1">
+                            เลขบัตรประชาชน <span class="text-red-500" aria-hidden="true">*</span>
+                        </label>
+                        <input asp-for="Input.ReporterIdCard" type="text" inputmode="numeric"
+                               placeholder="1-2345-67890-12-3"
+                               data-mask="id-card" maxlength="17"
+                               class="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 text-sm
+                                      focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 transition-colors tracking-widest" />
+                        <p class="text-xs text-gray-400 mt-1">ใช้ยืนยันตัวตน จะถูกเข้ารหัสและไม่แสดงในระบบ</p>
+                        <span asp-validation-for="Input.ReporterIdCard" class="text-red-600 text-xs mt-1 block"></span>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 2: ข้อมูลผู้ถูกกล่าวหา -->
+        <div class="card mb-6">
+            <div class="card-header">
+                <h2 class="font-semibold text-gray-800 flex items-center gap-2">
+                    <span class="w-6 h-6 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center shrink-0">2</span>
+                    ข้อมูลผู้ถูกกล่าวหา
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+                    <div>
+                        <label asp-for="Input.SubjectType" class="block text-sm font-medium text-gray-700 mb-1">
+                            ประเภทผู้ถูกกล่าวหา <span class="text-red-500" aria-hidden="true">*</span>
+                        </label>
+                        <select asp-for="Input.SubjectType"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                                       focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 transition-colors">
+                            <option value="">— เลือกประเภท —</option>
+                            <option value="Employee">พนักงาน รฟท.</option>
+                            <option value="Department">หน่วยงาน / แผนก</option>
+                            <option value="Contractor">ผู้รับเหมา / บุคคลภายนอก</option>
+                            <option value="Unknown">ไม่ทราบ / ไม่แน่ใจ</option>
+                        </select>
+                        <span asp-validation-for="Input.SubjectType" class="text-red-600 text-xs mt-1 block"></span>
+                    </div>
+
+                    <div>
+                        <label asp-for="Input.SubjectPersonName" class="block text-sm font-medium text-gray-700 mb-1">
+                            ชื่อผู้ถูกกล่าวหา <span class="text-gray-400 font-normal">(ถ้าทราบ)</span>
+                        </label>
+                        <input asp-for="Input.SubjectPersonName" type="text"
+                               placeholder="ชื่อ นามสกุล / ตำแหน่ง"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                                      focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 transition-colors" />
+                        <span asp-validation-for="Input.SubjectPersonName" class="text-red-600 text-xs mt-1 block"></span>
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label asp-for="Input.SubjectDepartment" class="block text-sm font-medium text-gray-700 mb-1">
+                            หน่วยงาน / สถานที่ <span class="text-gray-400 font-normal">(ถ้าทราบ)</span>
+                        </label>
+                        <input asp-for="Input.SubjectDepartment" type="text"
+                               placeholder="เช่น สถานีกรุงเทพ, กองบำรุงรักษา, ฝ่ายการเดินรถ"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                                      focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 transition-colors" />
+                        <span asp-validation-for="Input.SubjectDepartment" class="text-red-600 text-xs mt-1 block"></span>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 3: รายละเอียดการทุจริต -->
+        <div class="card mb-6">
+            <div class="card-header">
+                <h2 class="font-semibold text-gray-800 flex items-center gap-2">
+                    <span class="w-6 h-6 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center shrink-0">3</span>
+                    รายละเอียดการทุจริต
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+                    <div class="sm:col-span-2 sm:max-w-xs">
+                        <label asp-for="Input.IncidentDate" class="block text-sm font-medium text-gray-700 mb-1">
+                            วันที่เกิดเหตุ <span class="text-gray-400 font-normal">(ถ้าทราบ)</span>
+                        </label>
+                        <input asp-for="Input.IncidentDate" type="date"
+                               max="@DateTime.Today.ToString("yyyy-MM-dd")"
+                               data-datepicker
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm
+                                      focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 transition-colors" />
+                        <span asp-validation-for="Input.IncidentDate" class="text-red-600 text-xs mt-1 block"></span>
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <label asp-for="Input.Description" class="block text-sm font-medium text-gray-700 mb-1">
+                            รายละเอียดการทุจริต <span class="text-red-500" aria-hidden="true">*</span>
+                        </label>
+                        <textarea asp-for="Input.Description"
+                                  rows="7"
+                                  maxlength="4000"
+                                  placeholder="อธิบายพฤติกรรมทุจริต เช่น เรียกรับเงิน ใช้อำนาจหน้าที่โดยมิชอบ ฉ้อโกงทรัพย์สิน ฯลฯ ระบุเวลา สถานที่ ผู้เกี่ยวข้อง และพยานหลักฐานที่มีอยู่ให้ชัดเจน"
+                                  oninput="document.getElementById('desc-count').textContent = this.value.length"
+                                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none
+                                         focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/10 transition-colors"></textarea>
+                        <div class="flex justify-between mt-1">
+                            <span asp-validation-for="Input.Description" class="text-red-600 text-xs block"></span>
+                            <span class="text-xs text-gray-400 ml-auto"><span id="desc-count">0</span>/4,000</span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Section 4: ไฟล์แนบหลักฐาน -->
+        <div class="card mb-8">
+            <div class="card-header">
+                <h2 class="font-semibold text-gray-800 flex items-center gap-2">
+                    <span class="w-6 h-6 bg-amber-500 text-white text-xs rounded-full flex items-center justify-center shrink-0">4</span>
+                    ไฟล์แนบหลักฐาน
+                    <span class="text-gray-400 font-normal text-sm ml-1">(ถ้ามี)</span>
+                </h2>
+            </div>
+            <div class="card-body">
+                <div class="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center
+                            hover:border-amber-400/60 transition-colors" id="drop-zone">
+                    <svg class="w-10 h-10 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p class="text-sm text-gray-500 mb-1">ลากไฟล์มาวางที่นี่ หรือ</p>
+                    <label class="cursor-pointer inline-block mt-1">
+                        <span class="text-amber-600 text-sm font-medium hover:underline">คลิกเพื่อเลือกไฟล์</span>
+                        <input type="file"
+                               name="Input.Attachments"
+                               multiple
+                               accept=".jpg,.jpeg,.png,.pdf,.doc,.docx"
+                               class="sr-only"
+                               id="file-input"
+                               onchange="updateFileList(this.files)" />
+                    </label>
+                    <p class="text-xs text-gray-400 mt-2">JPG, PNG, PDF, DOC, DOCX · สูงสุด 5 ไฟล์ · ไม่เกิน 10 MB ต่อไฟล์</p>
+                </div>
+                <ul id="file-list" class="mt-3 space-y-1.5 hidden" aria-label="รายการไฟล์ที่เลือก"></ul>
+                <span asp-validation-for="Input.Attachments" class="text-red-600 text-xs mt-1 block"></span>
+            </div>
+        </div>
+
+        <!-- Confirm checkbox -->
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 flex gap-3 items-start text-sm">
+            <svg class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            </svg>
+            <div class="text-amber-800">
+                <p class="leading-relaxed">
+                    ข้าพเจ้ารับรองว่าข้อมูลที่แจ้งเป็นความจริงตามที่ทราบ และยินยอมให้
+                    การรถไฟแห่งประเทศไทยดำเนินการตรวจสอบข้อร้องเรียนนี้ตามระเบียบที่กำหนด
+                </p>
+            </div>
+        </div>
+
+        <!-- Turnstile -->
+        @if (!string.IsNullOrEmpty(Model.TurnstileSiteKey))
+        {
+            <div class="cf-turnstile mb-4"
+                 data-sitekey="@Model.TurnstileSiteKey"
+                 data-theme="light"
+                 data-language="th">
+            </div>
+        }
+
+        <!-- Actions -->
+        <div class="flex items-center gap-4">
+            <button type="submit"
+                    id="submit-btn"
+                    class="inline-flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white font-semibold
+                           px-8 py-2.5 rounded-xl transition shadow-sm text-sm">
+                <span id="submit-spinner"
+                      class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                      aria-hidden="true"></span>
+                ส่งเรื่องแจ้งเบาะแส
+            </button>
+            <a asp-page="/Index" class="text-sm text-gray-500 hover:text-gray-700 transition">ยกเลิก</a>
+        </div>
+
+    </form>
+</div>
+</div>
+</div>
+
+@section Scripts {
+    @if (!string.IsNullOrEmpty(Model.TurnstileSiteKey))
+    {
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    }
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        /* ─── Input masks ─────────────────────────────────────────── */
+        function applyPhoneMask(el) {
+            const raw = el.value.replace(/\D/g, '');
+            const d = raw.slice(0, 10);
+            if (d.length <= 2) { el.value = d; return; }
+            if (d[1] === '2') {
+                const s = d.slice(0, 9);
+                if (s.length <= 5) el.value = s.slice(0, 2) + '-' + s.slice(2);
+                else el.value = s.slice(0, 2) + '-' + s.slice(2, 5) + '-' + s.slice(5);
+            } else {
+                if (d.length <= 3) el.value = d;
+                else if (d.length <= 6) el.value = d.slice(0, 3) + '-' + d.slice(3);
+                else el.value = d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+            }
+        }
+
+        function applyIdCardMask(el) {
+            const d = el.value.replace(/\D/g, '').slice(0, 13);
+            let f = d.slice(0, 1);
+            if (d.length > 1)  f += '-' + d.slice(1, 5);
+            if (d.length > 5)  f += '-' + d.slice(5, 10);
+            if (d.length > 10) f += '-' + d.slice(10, 12);
+            if (d.length > 12) f += '-' + d.slice(12, 13);
+            el.value = f;
+        }
+
+        (function () {
+            const form = document.getElementById('corruption-form');
+            form.querySelectorAll('[data-mask="phone"]').forEach(function (el) {
+                el.addEventListener('input', function () { applyPhoneMask(this); });
+                if (el.value) applyPhoneMask(el);
+            });
+            form.querySelectorAll('[data-mask="id-card"]').forEach(function (el) {
+                el.addEventListener('input', function () { applyIdCardMask(this); });
+                if (el.value) applyIdCardMask(el);
+            });
+            form.addEventListener('submit', function () {
+                form.querySelectorAll('[data-mask="phone"]').forEach(function (el) {
+                    el.value = el.value.replace(/\D/g, '');
+                });
+                form.querySelectorAll('[data-mask="id-card"]').forEach(function (el) {
+                    el.value = el.value.replace(/\D/g, '');
+                });
+            }, true);
+        })();
+        /* ────────────────────────────────────────────────────────── */
+
+        (function () {
+            const ta = document.querySelector('textarea[name="Input.Description"]');
+            if (ta) document.getElementById('desc-count').textContent = ta.value.length;
+        })();
+
+        function updateFileList(files) {
+            const list = document.getElementById('file-list');
+            list.innerHTML = '';
+            if (!files || files.length === 0) { list.classList.add('hidden'); return; }
+            list.classList.remove('hidden');
+            Array.from(files).forEach(f => {
+                const li = document.createElement('li');
+                li.className = 'flex items-center gap-2 text-xs text-gray-600 bg-gray-50 rounded-lg px-3 py-2';
+                li.innerHTML = `<svg class="w-4 h-4 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg><span class="truncate">${f.name}</span><span class="ml-auto shrink-0 text-gray-400">${(f.size/1024/1024).toFixed(1)} MB</span>`;
+                list.appendChild(li);
+            });
+        }
+
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-amber-400', 'bg-amber-50'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-amber-400', 'bg-amber-50'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('border-amber-400', 'bg-amber-50');
+            const dt = new DataTransfer();
+            Array.from(e.dataTransfer.files).forEach(f => dt.items.add(f));
+            fileInput.files = dt.files;
+            updateFileList(fileInput.files);
+        });
+
+        document.getElementById('corruption-form').addEventListener('submit', function () {
+            const btn = document.getElementById('submit-btn');
+            const spinner = document.getElementById('submit-spinner');
+            btn.disabled = true;
+            spinner.classList.remove('hidden');
+        });
+    </script>
+}

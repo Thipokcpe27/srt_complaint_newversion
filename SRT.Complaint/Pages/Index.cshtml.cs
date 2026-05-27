@@ -1,19 +1,17 @@
-using Microsoft.AspNetCore.Mvc;
+#nullable enable
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using SRT.Complaint.Models;
+using SRT.Complaint.Services;
 
 namespace SRT.Complaint.Pages;
 
-public class IndexModel : PageModel
+public class IndexModel(IContentBlockService contentService) : PageModel
 {
-    private readonly ILogger<IndexModel> _logger;
+    public Dictionary<string, ContentBlock> HomeBlocks { get; private set; } = [];
 
-    public IndexModel(ILogger<IndexModel> logger)
+    public async Task OnGetAsync()
     {
-        _logger = logger;
-    }
-
-    public void OnGet()
-    {
-
+        ViewData["Title"] = "หน้าแรก";
+        HomeBlocks = await contentService.GetHomeBlocksAsync();
     }
 }

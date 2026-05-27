@@ -1,0 +1,384 @@
+@page
+@model SRT.Complaint.Pages.Admin.CategoriesModel
+@{
+    ViewData["Title"] = "หมวดหมู่เรื่องร้องเรียน";
+}
+
+<!-- ══ Edit Category Form ══ -->
+@if (Model.EditTarget != null)
+{
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-5">
+        <h2 class="text-sm font-semibold text-blue-900 mb-4">แก้ไขหมวดหมู่: @Model.EditTarget.Name</h2>
+        <form method="post" asp-page-handler="Edit" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="EditCatId" value="@Model.EditTarget.Id" />
+            <div class="lg:col-span-2">
+                <label class="block text-xs font-medium text-gray-600 mb-1">ชื่อหมวดหมู่ <span class="text-red-500">*</span></label>
+                <input name="EditName" value="@Model.EditTarget.Name" required
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">แผนกรับผิดชอบ</label>
+                <input name="EditDepartmentName" value="@Model.EditTarget.DepartmentName"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">Priority เริ่มต้น</label>
+                <select name="EditDefaultPriority"
+                        class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy">
+                    @foreach (var p in new[] {"Critical","Urgent","High","Normal","Low"})
+                    {
+                        <option value="@p" selected="@(Model.EditTarget.DefaultPriority == p)">@CategoriesModel.PriorityLabel(p)</option>
+                    }
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-medium text-gray-600 mb-1">ลำดับ</label>
+                <input name="EditSortOrder" type="number" value="@Model.EditTarget.SortOrder" min="0"
+                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+            </div>
+            <div class="lg:col-span-4 flex items-center gap-4">
+                <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                    <input type="checkbox" name="EditIsActive" value="true"
+                           @(Model.EditTarget.IsActive ? "checked" : "")
+                           class="w-4 h-4 rounded border-gray-300 text-srt-navy" />
+                    ใช้งานได้
+                </label>
+                <button type="submit"
+                        class="bg-srt-navy text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-srt-navy-dark transition">
+                    บันทึก
+                </button>
+                <a asp-page="/Admin/Categories"
+                   class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-200 transition">
+                    ยกเลิก
+                </a>
+            </div>
+        </form>
+    </div>
+}
+
+<!-- ══ Categories + Sub-categories ══ -->
+<div class="space-y-3 mb-5">
+    @foreach (var c in Model.Categories)
+    {
+        var subs = Model.SubsByCategory.GetValueOrDefault(c.Id) ?? [];
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+
+            <!-- Category row -->
+            <div class="flex items-center gap-3 px-4 py-3 @(!c.IsActive ? "opacity-60" : "")">
+                <span class="w-6 text-center text-xs font-mono text-gray-400 shrink-0">@c.SortOrder</span>
+
+                <!-- Toggle subs -->
+                <button type="button" onclick="toggleSubs(@c.Id)"
+                        class="flex items-center gap-2 min-w-0 flex-1 text-left">
+                    <svg id="arrow-@c.Id"
+                         class="w-4 h-4 text-gray-400 transition-transform duration-200 shrink-0 @(subs.Count == 0 ? "invisible" : "")"
+                         fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                    </svg>
+                    <span class="font-semibold text-gray-900 text-sm truncate">@c.Name</span>
+                    @if (subs.Count > 0)
+                    {
+                        <span class="shrink-0 text-xs text-gray-400 font-normal">(@subs.Count)</span>
+                    }
+                </button>
+
+                <span class="text-xs text-gray-400 hidden md:block shrink-0">@(c.DepartmentName ?? "—")</span>
+
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium hidden sm:inline shrink-0
+                    @(c.DefaultPriority == "Critical" ? "bg-red-100 text-red-800" :
+                      c.DefaultPriority == "Urgent"   ? "bg-orange-100 text-orange-800" :
+                      c.DefaultPriority == "High"     ? "bg-amber-100 text-amber-800" :
+                      c.DefaultPriority == "Normal"   ? "bg-blue-100 text-blue-800" :
+                                                        "bg-gray-100 text-gray-600")">
+                    @CategoriesModel.PriorityLabel(c.DefaultPriority)
+                </span>
+
+                @if (c.IsActive)
+                {
+                    <span class="flex items-center gap-1 text-xs text-green-700 shrink-0">
+                        <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                        <span class="hidden sm:inline">ใช้งานได้</span>
+                    </span>
+                }
+                else
+                {
+                    <span class="flex items-center gap-1 text-xs text-gray-400 shrink-0">
+                        <span class="w-1.5 h-1.5 rounded-full bg-gray-300"></span>
+                        <span class="hidden sm:inline">ปิดใช้งาน</span>
+                    </span>
+                }
+
+                <!-- Actions -->
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="button"
+                            onclick="openAddSubModal(@c.Id, '@Html.Raw(c.Name.Replace("'", "\\'"))', @(subs.Count > 0 ? subs.Max(s => s.SortOrder) + 1 : 1))"
+                            class="flex items-center gap-1 text-xs bg-gray-100 hover:bg-srt-navy hover:text-white text-gray-600 px-2.5 py-1.5 rounded-lg font-medium transition">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        <span class="hidden sm:inline">หัวข้อย่อย</span>
+                    </button>
+                    <a asp-page="/Admin/Categories" asp-route-editId="@c.Id"
+                       class="text-xs text-srt-navy hover:underline font-medium">แก้ไข</a>
+                    <form method="post" asp-page-handler="ToggleActive" asp-route-id="@c.Id" class="inline">
+                        @Html.AntiForgeryToken()
+                        <button type="submit"
+                                onclick="return confirm('@(c.IsActive ? "ปิดใช้งาน" : "เปิดใช้งาน") \"@c.Name\" ?')"
+                                class="text-xs @(c.IsActive ? "text-red-600 hover:text-red-800" : "text-green-600 hover:text-green-800") font-medium">
+                            @(c.IsActive ? "ปิดใช้" : "เปิดใช้")
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Sub-categories panel -->
+            <div id="subs-@c.Id" class="hidden border-t border-gray-100 bg-gray-50/60">
+                @if (subs.Count > 0)
+                {
+                    <table class="w-full text-sm">
+                        <tbody>
+                        @foreach (var s in subs)
+                        {
+                            <tr class="border-b border-gray-100 last:border-b-0 @(!s.IsActive ? "opacity-50" : "")">
+                                <td class="pl-14 pr-4 py-2.5 w-12 text-xs font-mono text-gray-400 text-center">@s.SortOrder</td>
+                                <td class="px-4 py-2.5 text-gray-700 font-medium">@s.Name</td>
+                                <td class="px-4 py-2.5">
+                                    @if (s.IsActive)
+                                    {
+                                        <span class="flex items-center gap-1 text-xs text-green-700">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span> ใช้งานได้
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="flex items-center gap-1 text-xs text-gray-400">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-gray-300"></span> ปิดใช้งาน
+                                        </span>
+                                    }
+                                </td>
+                                <td class="px-4 py-2.5 text-right">
+                                    <div class="flex items-center justify-end gap-3">
+                                        <button type="button"
+                                                onclick="openEditSubModal(@s.Id, '@Html.Raw(s.Name.Replace("'", "\\'"))', @s.SortOrder, @(s.IsActive ? "true" : "false"))"
+                                                class="text-xs text-srt-navy hover:underline font-medium">แก้ไข</button>
+                                        <form method="post" asp-page-handler="ToggleSubActive" asp-route-id="@s.Id" class="inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit"
+                                                    onclick="return confirm('@(s.IsActive ? "ปิดใช้งาน" : "เปิดใช้งาน") \"@s.Name\" ?')"
+                                                    class="text-xs @(s.IsActive ? "text-red-600 hover:text-red-800" : "text-green-600 hover:text-green-800") font-medium">
+                                                @(s.IsActive ? "ปิดใช้" : "เปิดใช้")
+                                            </button>
+                                        </form>
+                                        <form method="post" asp-page-handler="DeleteSub" asp-route-id="@s.Id" class="inline">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit"
+                                                    onclick="return confirm('ลบหัวข้อย่อย \"@s.Name\" ?')"
+                                                    class="text-xs text-gray-400 hover:text-red-600 font-medium">ลบ</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <p class="pl-14 py-3 text-xs text-gray-400 italic">ยังไม่มีหัวข้อย่อย — กดปุ่ม "+ หัวข้อย่อย" เพื่อเพิ่ม</p>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+<!-- ══ Create New Category ══ -->
+<div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-gray-900 mb-4">เพิ่มหมวดหมู่หลักใหม่</h2>
+    <form method="post" asp-page-handler="Create" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+        @Html.AntiForgeryToken()
+        <div class="lg:col-span-2">
+            <label class="block text-xs font-medium text-gray-600 mb-1">ชื่อหมวดหมู่ <span class="text-red-500">*</span></label>
+            <input name="NewName" required placeholder="เช่น ความตรงต่อเวลา"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">แผนกรับผิดชอบ</label>
+            <input name="NewDepartmentName" placeholder="เช่น ฝ่ายการเดินรถ"
+                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Priority เริ่มต้น</label>
+            <select name="NewDefaultPriority"
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy">
+                @foreach (var p in new[] {"Critical","Urgent","High","Normal","Low"})
+                {
+                    <option value="@p" selected="@(p == "Normal")">@CategoriesModel.PriorityLabel(p)</option>
+                }
+            </select>
+        </div>
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">ลำดับ</label>
+            <div class="flex gap-2">
+                <input name="NewSortOrder" type="number"
+                       value="@(Model.Categories.Any() ? Model.Categories.Max(c => c.SortOrder) + 1 : 1)" min="0"
+                       class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+                <button type="submit"
+                        class="bg-srt-navy text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-srt-navy-dark transition whitespace-nowrap">
+                    + เพิ่ม
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- ══ Modal: เพิ่มหัวข้อย่อย ══ -->
+<div id="addSubModal"
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden"
+     role="dialog" aria-modal="true" aria-labelledby="addSubModalTitle">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div class="bg-srt-navy px-6 py-4 flex items-center justify-between">
+            <div>
+                <h2 id="addSubModalTitle" class="text-white font-bold text-base">เพิ่มหัวข้อย่อย</h2>
+                <p id="addSubModalCatName" class="text-blue-200 text-xs mt-0.5"></p>
+            </div>
+            <button type="button" onclick="closeAddSubModal()"
+                    class="text-white/70 hover:text-white transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <form method="post" asp-page-handler="CreateSub" id="addSubForm" class="px-6 py-5 space-y-4">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="NewSubCategoryId" id="addSubCatId" />
+            <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1.5">
+                    ชื่อหัวข้อย่อย <span class="text-red-500">*</span>
+                </label>
+                <input name="NewSubName" id="addSubName" required autofocus
+                       placeholder="เช่น บริการไม่สุภาพ, แต่งกายไม่เรียบร้อย"
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-srt-navy/30 focus:border-srt-navy" />
+            </div>
+            <div class="w-32">
+                <label class="block text-xs font-semibold text-gray-700 mb-1.5">ลำดับ</label>
+                <input name="NewSubSortOrder" id="addSubSortOrder" type="number" min="0"
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-srt-navy/30 focus:border-srt-navy" />
+            </div>
+            <div class="flex gap-3 pt-1">
+                <button type="submit"
+                        class="flex-1 bg-srt-navy text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-srt-navy-dark transition">
+                    บันทึก
+                </button>
+                <button type="button" onclick="closeAddSubModal()"
+                        class="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 transition">
+                    ยกเลิก
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ══ Modal: แก้ไขหัวข้อย่อย ══ -->
+<div id="editSubModal"
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm hidden"
+     role="dialog" aria-modal="true" aria-labelledby="editSubModalTitle">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+        <div class="bg-amber-500 px-6 py-4 flex items-center justify-between">
+            <div>
+                <h2 id="editSubModalTitle" class="text-white font-bold text-base">แก้ไขหัวข้อย่อย</h2>
+                <p id="editSubModalName" class="text-amber-100 text-xs mt-0.5"></p>
+            </div>
+            <button type="button" onclick="closeEditSubModal()"
+                    class="text-white/70 hover:text-white transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <form method="post" asp-page-handler="EditSub" class="px-6 py-5 space-y-4">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="EditSubCatId" id="editSubCatId" />
+            <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1.5">
+                    ชื่อหัวข้อย่อย <span class="text-red-500">*</span>
+                </label>
+                <input name="EditSubName" id="editSubName" required
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400" />
+            </div>
+            <div class="w-32">
+                <label class="block text-xs font-semibold text-gray-700 mb-1.5">ลำดับ</label>
+                <input name="EditSubSortOrder" id="editSubSortOrder" type="number" min="0"
+                       class="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400" />
+            </div>
+            <label class="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer select-none">
+                <input type="checkbox" name="EditSubIsActive" id="editSubIsActive" value="true"
+                       class="w-4 h-4 rounded border-gray-300 text-amber-500 focus:ring-amber-400" />
+                <span>ใช้งานได้</span>
+            </label>
+            <div class="flex gap-3 pt-1">
+                <button type="submit"
+                        class="flex-1 bg-amber-500 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-amber-600 transition">
+                    บันทึก
+                </button>
+                <button type="button" onclick="closeEditSubModal()"
+                        class="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-200 transition">
+                    ยกเลิก
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    // ── Toggle sub-list ──
+    function toggleSubs(catId) {
+        const panel = document.getElementById('subs-' + catId);
+        const arrow  = document.getElementById('arrow-' + catId);
+        const isHidden = panel.classList.toggle('hidden');
+        arrow.style.transform = isHidden ? '' : 'rotate(90deg)';
+    }
+
+    // ── Add Sub Modal ──
+    function openAddSubModal(catId, catName, nextSort) {
+        document.getElementById('addSubCatId').value    = catId;
+        document.getElementById('addSubModalCatName').textContent = catName;
+        document.getElementById('addSubSortOrder').value = nextSort;
+        document.getElementById('addSubName').value      = '';
+        document.getElementById('addSubModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('addSubName').focus(), 50);
+    }
+    function closeAddSubModal() {
+        document.getElementById('addSubModal').classList.add('hidden');
+    }
+    document.getElementById('addSubModal').addEventListener('click', function (e) {
+        if (e.target === this) closeAddSubModal();
+    });
+
+    // ── Edit Sub Modal ──
+    function openEditSubModal(subId, subName, sortOrder, isActive) {
+        document.getElementById('editSubCatId').value       = subId;
+        document.getElementById('editSubName').value        = subName;
+        document.getElementById('editSubSortOrder').value   = sortOrder;
+        document.getElementById('editSubIsActive').checked  = isActive;
+        document.getElementById('editSubModalName').textContent = subName;
+        document.getElementById('editSubModal').classList.remove('hidden');
+        setTimeout(() => document.getElementById('editSubName').focus(), 50);
+    }
+    function closeEditSubModal() {
+        document.getElementById('editSubModal').classList.add('hidden');
+    }
+    document.getElementById('editSubModal').addEventListener('click', function (e) {
+        if (e.target === this) closeEditSubModal();
+    });
+
+    // Close modals on Escape
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeAddSubModal();
+            closeEditSubModal();
+        }
+    });
+</script>
+}

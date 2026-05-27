@@ -7,6 +7,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<StaffUser> StaffUsers => Set<StaffUser>();
     public DbSet<ComplaintCategory> ComplaintCategories => Set<ComplaintCategory>();
+    public DbSet<ComplaintSubCategory> ComplaintSubCategories => Set<ComplaintSubCategory>();
     public DbSet<SlaConfig> SlaConfigs => Set<SlaConfig>();
     public DbSet<Models.Complaint> Complaints => Set<Models.Complaint>();
     public DbSet<ComplaintAttachment> ComplaintAttachments => Set<ComplaintAttachment>();
@@ -19,6 +20,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ApiRequestLog> ApiRequestLogs => Set<ApiRequestLog>();
     public DbSet<Webhook> Webhooks => Set<Webhook>();
     public DbSet<WebhookDeliveryLog> WebhookDeliveryLogs => Set<WebhookDeliveryLog>();
+    public DbSet<ComplaintTerms> ComplaintTerms => Set<ComplaintTerms>();
+    public DbSet<ContentBlock> ContentBlocks => Set<ContentBlock>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,6 +46,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.DefaultPriority).HasMaxLength(20);
         });
 
+        modelBuilder.Entity<ComplaintSubCategory>(e =>
+        {
+            e.ToTable("ComplaintSubCategories", "dbo");
+            e.Property(x => x.Name).HasMaxLength(100);
+            e.HasOne(x => x.Category)
+             .WithMany(c => c.SubCategories)
+             .HasForeignKey(x => x.CategoryId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<SlaConfig>(e =>
         {
             e.ToTable("SlaConfigs", "dbo");
@@ -60,11 +73,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.ReporterName).HasMaxLength(200);
             e.Property(x => x.ReporterPhone).HasMaxLength(20);
             e.Property(x => x.ReporterEmail).HasMaxLength(200);
+            e.Property(x => x.ReporterIdCard).HasMaxLength(20);
             e.Property(x => x.SubjectStation).HasMaxLength(200);
+            e.Property(x => x.Channel).HasMaxLength(20).HasDefaultValue("Web");
             e.Property(x => x.Priority).HasMaxLength(20);
             e.Property(x => x.Status).HasMaxLength(50);
             e.Property(x => x.SatisfactionNote).HasMaxLength(500);
             e.HasOne(x => x.AssignedTo).WithMany(u => u.AssignedComplaints).HasForeignKey(x => x.AssignedToId).OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(x => x.SubCategory).WithMany(s => s.Complaints).HasForeignKey(x => x.SubCategoryId).OnDelete(DeleteBehavior.ClientSetNull);
         });
 
         modelBuilder.Entity<ComplaintAttachment>(e =>
@@ -79,6 +95,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         {
             e.ToTable("ComplaintNotes", "dbo");
             e.Property(x => x.NoteType).HasMaxLength(20);
+            e.HasOne(x => x.Author).WithMany().HasForeignKey(x => x.AuthorId)
+                .OnDelete(DeleteBehavior.ClientSetNull);
         });
 
         modelBuilder.Entity<ComplaintTransferLog>(e =>
@@ -153,6 +171,19 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.EventType).HasMaxLength(100);
         });
 
+        modelBuilder.Entity<ContentBlock>(e =>
+        {
+            e.ToTable("ContentBlocks", "dbo");
+            e.HasIndex(x => x.Key).IsUnique();
+            e.Property(x => x.Key).HasMaxLength(100);
+            e.Property(x => x.Title).HasMaxLength(200);
+            e.Property(x => x.ImagePath).HasMaxLength(500);
+            e.HasOne(x => x.UpdatedBy)
+             .WithMany()
+             .HasForeignKey(x => x.UpdatedById)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
         SeedData(modelBuilder);
     }
 
@@ -189,5 +220,15 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             new NotificationTemplate { Id = 7, EventKey = "CriticalReceived", LabelTh = "รับเรื่องเร่งด่วนมาก", EmailSubject = "[รฟท.] เร่งด่วน: รับเรื่องร้องเรียนระดับ Critical {ReferenceNumber}", SmsBody = null, IsSmsEnabled = false },
             new NotificationTemplate { Id = 8, EventKey = "DecryptionRequested", LabelTh = "ขอดูข้อมูลผู้แจ้งทุจริต", EmailSubject = "[รฟท.] แจ้งเตือน: มีการขอดูข้อมูลผู้แจ้ง {ReferenceNumber}", SmsBody = null, IsSmsEnabled = false }
         );
+
+        modelBuilder.Entity<ComplaintTerms>(e =>
+        {
+            e.ToTable("ComplaintTerms", "dbo");
+            e.Property(x => x.Title).HasMaxLength(300);
+            e.HasOne(x => x.UpdatedBy)
+             .WithMany()
+             .HasForeignKey(x => x.UpdatedById)
+             .OnDelete(DeleteBehavior.ClientSetNull);
+        });
     }
 }

@@ -1,0 +1,205 @@
+@page
+@model SRT.Complaint.Pages.Corruption.QueueModel
+@{
+    ViewData["Title"] = "คิวเรื่องทุจริต";
+}
+
+<!-- ══ Security Banner ══ -->
+<div class="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 mb-4 text-xs text-amber-800">
+    <svg class="w-4 h-4 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+    </svg>
+    ข้อมูลผู้แจ้งแสดงแบบ <strong>ปิดบัง</strong> เสมอ — ต้องเข้าดูรายละเอียดเพื่อขอถอดรหัส
+</div>
+
+<!-- ══ Filter Bar ══ -->
+<form method="get" class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-5">
+    <div class="flex flex-wrap items-end gap-3">
+
+        <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">สถานะ</label>
+            <select name="Status"
+                    class="border border-gray-300 rounded-lg px-3 py-2 text-sm
+                           focus:outline-none focus:border-srt-navy">
+                <option value="">ทุกสถานะ</option>
+                <option value="Pending" selected="@(Model.Status == "Pending")">รอดำเนินการ</option>
+                <option value="InProgress" selected="@(Model.Status == "InProgress")">กำลังสืบสวน</option>
+                <option value="UnderReview" selected="@(Model.Status == "UnderReview")">อยู่ระหว่างพิจารณา</option>
+                <option value="Closed" selected="@(Model.Status == "Closed")">ปิดเรื่อง</option>
+            </select>
+        </div>
+
+        <button type="submit"
+                class="bg-srt-navy text-white px-4 py-2 rounded-lg text-sm font-medium
+                       hover:bg-srt-navy-dark transition">
+            กรอง
+        </button>
+
+        @if (!string.IsNullOrEmpty(Model.Status))
+        {
+            <a asp-page="/Corruption/Queue" class="text-sm text-gray-500 hover:text-gray-700 py-2">ล้าง</a>
+        }
+
+        <span class="text-sm text-gray-500 ml-auto py-2">
+            ทั้งหมด <strong class="text-gray-900">@Model.TotalCount</strong> รายการ
+        </span>
+    </div>
+</form>
+
+<!-- ══ Table ══ -->
+<div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+    <table class="w-full text-sm border-collapse">
+        <thead>
+            <tr class="bg-gray-50 text-gray-600 text-left text-xs">
+                <th class="px-4 py-3 font-semibold border-b border-gray-200 whitespace-nowrap">เลขที่อ้างอิง</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200 whitespace-nowrap">ประเภทเรื่อง</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200 whitespace-nowrap">ผู้ถูกกล่าวหา</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200 whitespace-nowrap">
+                    ผู้แจ้ง
+                    <span class="ml-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-700">ปิดบัง</span>
+                </th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200 whitespace-nowrap">สถานะ</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200 whitespace-nowrap">SLA</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200 whitespace-nowrap">ผู้รับผิดชอบ</th>
+                <th class="px-4 py-3 font-semibold border-b border-gray-200 whitespace-nowrap">วันที่รับ</th>
+                <th class="px-4 py-3 border-b border-gray-200 w-28"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (!Model.Reports.Any())
+            {
+                <tr>
+                    <td colspan="9" class="px-4 py-16 text-center">
+                        <svg class="w-12 h-12 text-gray-200 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                        <p class="text-gray-400 text-sm">ไม่มีเรื่องที่ตรงกับเงื่อนไข</p>
+                    </td>
+                </tr>
+            }
+            @foreach (var r in Model.Reports)
+            {
+                <tr class="hover:bg-amber-50/30 transition-colors border-b border-gray-100 last:border-b-0
+                           @(r.SlaBreached ? "bg-red-50/40" : "")">
+                    <td class="px-4 py-3">
+                        <a asp-page="/Corruption/CaseDetail" asp-route-id="@r.Id"
+                           class="text-srt-navy font-medium hover:underline font-mono text-xs">
+                            @r.ReferenceNumber
+                        </a>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="text-gray-700">@r.SubjectType</span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-700 max-w-[140px]">
+                        @if (!string.IsNullOrEmpty(r.SubjectPersonName))
+                        {
+                            <p class="truncate font-medium">@r.SubjectPersonName</p>
+                        }
+                        @if (!string.IsNullOrEmpty(r.SubjectDepartment))
+                        {
+                            <p class="text-xs text-gray-400 truncate">@r.SubjectDepartment</p>
+                        }
+                    </td>
+                    <!-- Masked reporter info — cannot search/filter since encrypted -->
+                    <td class="px-4 py-3">
+                        <span class="text-gray-600 font-mono text-xs">@r.ReporterNameMasked</span>
+                        <br />
+                        <span class="text-gray-400 font-mono text-xs">@r.ReporterPhoneMasked</span>
+                    </td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-0.5 rounded-full text-xs font-medium
+                            @(r.Status == "Pending"    ? "bg-amber-100 text-amber-800" :
+                              r.Status == "InProgress" ? "bg-blue-100 text-blue-800" :
+                              r.Status == "UnderReview"? "bg-purple-100 text-purple-800" :
+                              r.Status == "Closed"     ? "bg-gray-200 text-gray-700" :
+                                                         "bg-red-100 text-red-800")">
+                            @r.StatusLabel
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-xs whitespace-nowrap">
+                        @if (r.SlaBreached)
+                        {
+                            <span class="text-red-600 font-medium">⚠ เกิน SLA</span>
+                        }
+                        else if (r.SlaWarning)
+                        {
+                            <span class="text-amber-600 font-medium">⏰ @r.SlaRemainingText</span>
+                        }
+                        else
+                        {
+                            <span class="text-gray-400">@r.SlaRemainingText</span>
+                        }
+                    </td>
+                    <td class="px-4 py-3 text-gray-600 text-xs">
+                        @(r.AssignedToName ?? "—")
+                    </td>
+                    <td class="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
+                        @r.CreatedAt.ToLocalTime().ToString("dd/MM/yy HH:mm")
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                        @if (r.AssignedToId == null && r.Status == "Pending")
+                        {
+                            <form method="post" asp-page-handler="Claim" asp-route-id="@r.Id" class="inline">
+                                @Html.AntiForgeryToken()
+                                <button type="submit"
+                                        class="text-xs bg-amber-600 text-white px-3 py-1.5 rounded-lg
+                                               hover:bg-amber-700 transition font-medium">
+                                    รับเรื่อง
+                                </button>
+                            </form>
+                        }
+                        else
+                        {
+                            <a asp-page="/Corruption/CaseDetail" asp-route-id="@r.Id"
+                               class="text-xs text-srt-navy hover:underline font-medium">
+                                สืบสวน →
+                            </a>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- ══ Pagination ══ -->
+@if (Model.TotalPages > 1)
+{
+    <div class="flex items-center justify-between mt-4">
+        <p class="text-sm text-gray-500">
+            แสดง @Model.PageStart–@Model.PageEnd จาก @Model.TotalCount รายการ
+        </p>
+        <div class="flex items-center gap-1">
+            @if (Model.CurrentPage > 1)
+            {
+                <a asp-page="/Corruption/Queue"
+                   asp-route-currentPage="@(Model.CurrentPage - 1)"
+                   asp-route-status="@Model.Status"
+                   class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">← ก่อนหน้า</a>
+            }
+            @{
+                var startP = Math.Max(1, Model.CurrentPage - 2);
+                var endP   = Math.Min(Model.TotalPages, Model.CurrentPage + 2);
+            }
+            @for (var p = startP; p <= endP; p++)
+            {
+                <a asp-page="/Corruption/Queue"
+                   asp-route-currentPage="@p"
+                   asp-route-status="@Model.Status"
+                   class="px-3 py-1.5 text-sm rounded-lg
+                          @(p == Model.CurrentPage ? "bg-amber-600 text-white" : "border border-gray-300 hover:bg-gray-50")">
+                    @p
+                </a>
+            }
+            @if (Model.CurrentPage < Model.TotalPages)
+            {
+                <a asp-page="/Corruption/Queue"
+                   asp-route-currentPage="@(Model.CurrentPage + 1)"
+                   asp-route-status="@Model.Status"
+                   class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">ถัดไป →</a>
+            }
+        </div>
+    </div>
+}

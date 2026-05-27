@@ -11,15 +11,23 @@
     <Exec Command="npm install" WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
 
-  <Target Name="BuildTailwind" BeforeTargets="Build" DependsOnTargets="NpmInstall"
-          Inputs="$(MSBuildProjectDirectory)\wwwroot\css\app.css;$(MSBuildProjectDirectory)\tailwind.config.js"
-          Outputs="$(MSBuildProjectDirectory)\wwwroot\css\site.css">
+  <Target Name="BuildTailwind" BeforeTargets="Build" DependsOnTargets="NpmInstall" Inputs="$(MSBuildProjectDirectory)\wwwroot\css\app.css;$(MSBuildProjectDirectory)\tailwind.config.js" Outputs="$(MSBuildProjectDirectory)\wwwroot\css\site.css">
     <Message Importance="high" Text="Building Tailwind CSS..." />
     <Exec Command="npm run build:css" WorkingDirectory="$(MSBuildProjectDirectory)" />
   </Target>
 
   <ItemGroup>
+    <Content Include="Fonts\Sarabun-Regular.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Fonts\Sarabun-Bold.ttf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.2.0" />
+    <PackageReference Include="HtmlSanitizer" Version="9.0.892" />
     <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="Dapper" Version="2.1.79" />
     <PackageReference Include="MailKit" Version="4.16.0" />

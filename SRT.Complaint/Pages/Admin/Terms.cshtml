@@ -1,0 +1,195 @@
+@page
+@model SRT.Complaint.Pages.Admin.TermsModel
+@{
+    ViewData["Title"] = "หลักเกณฑ์การรับเรื่องร้องเรียน";
+}
+
+<!-- Page header -->
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-xl font-bold text-gray-900">หลักเกณฑ์การรับเรื่องร้องเรียน</h1>
+        <p class="text-sm text-gray-500 mt-1">จัดการเนื้อหาที่แสดงให้ผู้ใช้ยอมรับก่อนยื่นเรื่อง (ทั้งเรื่องทั่วไปและทุจริต)</p>
+    </div>
+    @if (Model.CurrentTerms is not null)
+    {
+        <span class="text-xs text-gray-400">
+            อัปเดตล่าสุด: @Model.CurrentTerms.UpdatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+        </span>
+    }
+</div>
+
+<form method="post" id="terms-form">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="alert-error mb-5 [&:empty]:hidden"></div>
+
+    <!-- Status card -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-5 p-5">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="font-semibold text-gray-900 text-sm">สถานะการแสดง Modal</h2>
+                <p class="text-xs text-gray-500 mt-0.5">เมื่อเปิด ผู้ใช้จะต้องยอมรับหลักเกณฑ์ก่อนยื่นเรื่องทุกครั้ง</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer select-none">
+                <input type="checkbox"
+                       asp-for="Input.IsActive"
+                       id="toggle-active"
+                       class="sr-only peer"
+                       onchange="updateStatusBadge(this.checked)" />
+                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2
+                            peer-focus:ring-srt-navy/30 rounded-full peer
+                            peer-checked:after:translate-x-full peer-checked:after:border-white
+                            after:content-[''] after:absolute after:top-[2px] after:left-[2px]
+                            after:bg-white after:border-gray-300 after:border after:rounded-full
+                            after:h-5 after:w-5 after:transition-all
+                            peer-checked:bg-srt-navy"></div>
+                <span id="status-badge"
+                      class="ml-3 text-sm font-medium @(Model.Input.IsActive ? "text-srt-navy" : "text-gray-400")">
+                    @(Model.Input.IsActive ? "เปิดใช้งาน" : "ปิดใช้งาน")
+                </span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Content editor card -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-5">
+        <div class="px-5 py-4 border-b border-gray-100">
+            <h2 class="font-semibold text-gray-900 text-sm">เนื้อหาหลักเกณฑ์</h2>
+        </div>
+        <div class="p-5 space-y-4">
+
+            <!-- Title -->
+            <div>
+                <label asp-for="Input.Title" class="form-label">หัวข้อ Modal</label>
+                <input asp-for="Input.Title" type="text" class="form-input"
+                       placeholder="หลักเกณฑ์การรับเรื่องร้องเรียน" />
+                <span asp-validation-for="Input.Title" class="form-error block"></span>
+            </div>
+
+            <!-- Tabs -->
+            <div>
+                <label class="form-label mb-2 block">เนื้อหา (HTML)</label>
+                <div class="flex items-center gap-1 mb-2 bg-gray-100 rounded-lg p-1 w-fit">
+                    <button type="button" id="tab-edit"
+                            onclick="switchTab('edit')"
+                            class="px-3 py-1 text-xs font-medium rounded-md bg-white shadow-sm text-gray-900 transition">
+                        แก้ไข
+                    </button>
+                    <button type="button" id="tab-preview"
+                            onclick="switchTab('preview')"
+                            class="px-3 py-1 text-xs font-medium rounded-md text-gray-500 transition hover:text-gray-700">
+                        ตัวอย่าง
+                    </button>
+                </div>
+
+                <!-- Editor -->
+                <div id="editor-pane">
+                    <textarea asp-for="Input.Content"
+                              rows="22"
+                              oninput="syncPreview()"
+                              class="w-full font-mono text-xs border border-gray-300 rounded-xl px-3 py-3
+                                     focus:outline-none focus:ring-2 focus:ring-srt-navy/30 focus:border-srt-navy
+                                     resize-y bg-gray-50"
+                              placeholder="ใส่ HTML content ที่ต้องการแสดงในหลักเกณฑ์..."></textarea>
+                    <span asp-validation-for="Input.Content" class="form-error block"></span>
+                    <p class="text-xs text-gray-400 mt-1.5">
+                        รองรับ HTML — ใช้ tag เช่น
+                        <code class="bg-gray-100 px-1 rounded">&lt;ul&gt;&lt;li&gt;</code>,
+                        <code class="bg-gray-100 px-1 rounded">&lt;p&gt;</code>,
+                        <code class="bg-gray-100 px-1 rounded">&lt;strong&gt;</code>,
+                        Tailwind CSS classes
+                    </p>
+                </div>
+
+                <!-- Preview -->
+                <div id="preview-pane" class="hidden">
+                    <div id="preview-content"
+                         class="min-h-[200px] border border-gray-200 rounded-xl px-5 py-4
+                                bg-white text-sm text-gray-700 leading-relaxed">
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1.5">ตัวอย่างที่จะแสดงใน modal (Tailwind จะไม่ render ใน preview นี้)</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview modal card -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm mb-5 p-5">
+        <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold text-gray-900 text-sm">ตัวอย่าง Modal ที่ผู้ใช้จะเห็น</h2>
+            <button type="button"
+                    onclick="document.getElementById('modal-demo').classList.toggle('hidden')"
+                    class="text-xs text-srt-navy font-medium hover:underline">
+                แสดง/ซ่อนตัวอย่าง
+            </button>
+        </div>
+        <div id="modal-demo" class="hidden border border-gray-200 rounded-xl overflow-hidden">
+            <div class="bg-srt-navy px-5 py-3 flex items-center gap-3">
+                <div class="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                </div>
+                <span class="text-white font-bold text-sm" id="demo-title">@Model.Input.Title</span>
+            </div>
+            <div class="p-5 text-sm text-gray-700 leading-relaxed max-h-48 overflow-y-auto bg-white" id="demo-content">
+                @Html.Raw(Model.Input.Content)
+            </div>
+            <div class="bg-gray-50 border-t border-gray-200 px-5 py-3 flex items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 rounded border-2 border-gray-300 bg-white shrink-0"></div>
+                    <span class="text-xs text-gray-600">ข้าพเจ้าได้อ่านและยอมรับหลักเกณฑ์ทุกข้อ</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save button -->
+    <div class="flex items-center gap-4">
+        <button type="submit" class="btn-primary btn-lg">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M5 13l4 4L19 7" />
+            </svg>
+            บันทึกหลักเกณฑ์
+        </button>
+        <span class="text-xs text-gray-400">การเปลี่ยนแปลงจะมีผลทันทีสำหรับผู้ใช้ทุกคน</span>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        function switchTab(tab) {
+            var editBtn = document.getElementById('tab-edit');
+            var previewBtn = document.getElementById('tab-preview');
+            var editorPane = document.getElementById('editor-pane');
+            var previewPane = document.getElementById('preview-pane');
+
+            if (tab === 'edit') {
+                editBtn.className = 'px-3 py-1 text-xs font-medium rounded-md bg-white shadow-sm text-gray-900 transition';
+                previewBtn.className = 'px-3 py-1 text-xs font-medium rounded-md text-gray-500 transition hover:text-gray-700';
+                editorPane.classList.remove('hidden');
+                previewPane.classList.add('hidden');
+            } else {
+                previewBtn.className = 'px-3 py-1 text-xs font-medium rounded-md bg-white shadow-sm text-gray-900 transition';
+                editBtn.className = 'px-3 py-1 text-xs font-medium rounded-md text-gray-500 transition hover:text-gray-700';
+                previewPane.classList.remove('hidden');
+                editorPane.classList.add('hidden');
+                document.getElementById('preview-content').innerHTML =
+                    document.getElementById('Input_Content').value;
+            }
+        }
+
+        function syncPreview() {
+            var val = document.getElementById('Input_Content').value;
+            document.getElementById('demo-content').innerHTML = val;
+        }
+
+        function updateStatusBadge(checked) {
+            var badge = document.getElementById('status-badge');
+            badge.textContent = checked ? 'เปิดใช้งาน' : 'ปิดใช้งาน';
+            badge.className = 'ml-3 text-sm font-medium ' + (checked ? 'text-srt-navy' : 'text-gray-400');
+        }
+    </script>
+}

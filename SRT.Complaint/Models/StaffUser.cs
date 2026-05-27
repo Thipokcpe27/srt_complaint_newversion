@@ -12,6 +12,9 @@ public class StaffUser
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
+    public bool MustChangePassword { get; set; } = false;
+    public DateTime? TempPasswordExpiresAt { get; set; }
+    public byte[]? TempPasswordEncrypted { get; set; }
 
     public ICollection<Complaint> AssignedComplaints { get; set; } = new List<Complaint>();
 }

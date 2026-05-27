@@ -1,0 +1,70 @@
+#nullable enable
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
+using SRT.Complaint.Data;
+using SRT.Complaint.Models;
+
+namespace SRT.Complaint.Pages.Admin;
+
+[Authorize(Policy = "SuperAdmin")]
+public class ApiKeyUsageModel(AppDbContext db) : PageModel
+{
+    [BindProperty(SupportsGet = true)] public int    KeyId       { get; set; }
+    [BindProperty(SupportsGet = true)] public int    CurrentPage { get; set; } = 1;
+
+    public const int PageSize = 50;
+
+    public ApiKey?                    ApiKey     { get; private set; }
+    public IReadOnlyList<ApiRequestLog> Logs     { get; private set; } = [];
+    public int TotalCount  { get; private set; }
+    public int TotalPages  { get; private set; }
+    public int PageStart   => TotalCount == 0 ? 0 : (CurrentPage - 1) * PageSize + 1;
+    public int PageEnd     => Math.Min(CurrentPage * PageSize, TotalCount);
+
+    // Stats
+    public int SuccessCount  { get; private set; }
+    public int ErrorCount    { get; private set; }
+    public double? AvgMs     { get; private set; }
+
+    public async Task<IActionResult> OnGetAsync()
+    {
+        ViewData["Title"] = "API Key Usage";
+
+        ApiKey = await db.ApiKeys.Include(k => k.Scopes).FirstOrDefaultAsync(k => k.Id == KeyId);
+        if (ApiKey == null) return NotFound();
+
+        var q = db.ApiRequestLogs.Where(l => l.ApiKeyId == KeyId);
+
+        TotalCount = await q.CountAsync();
+        TotalPages = (int)Math.Ceiling((double)TotalCount / PageSize);
+        if (CurrentPage > TotalPages && TotalPages > 0) CurrentPage = TotalPages;
+
+        Logs = await q
+            .OrderByDescending(l => l.CreatedAt)
+            .Skip((CurrentPage - 1) * PageSize)
+            .Take(PageSize)
+            .ToListAsync();
+
+        var stats = await db.ApiRequestLogs
+            .Where(l => l.ApiKeyId == KeyId)
+            .GroupBy(l => 1)
+            .Select(g => new
+            {
+                Success = g.Count(l => l.ResponseStatus >= 200 && l.ResponseStatus < 300),
+                Error   = g.Count(l => l.ResponseStatus >= 400),
+                AvgMs   = (double?)g.Average(l => l.ResponseMs)
+            })
+            .FirstOrDefaultAsync();
+
+        if (stats != null)
+        {
+            SuccessCount = stats.Success;
+            ErrorCount   = stats.Error;
+            AvgMs        = stats.AvgMs.HasValue ? Math.Round(stats.AvgMs.Value, 0) : null;
+        }
+
+        return Page();
+    }
+}

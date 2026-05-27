@@ -1,0 +1,64 @@
+@page
+@model SRT.Complaint.Pages.Public.CorruptionSubmittedModel
+@{
+    ViewData["Title"] = "ส่งเรื่องสำเร็จ";
+    Layout = "_Layout";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+<div class="max-w-lg mx-auto text-center animate-slide-up">
+
+    <!-- Icon -->
+    <div class="w-20 h-20 bg-amber-100 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
+        <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+    </div>
+
+    <h1 class="text-3xl font-extrabold text-gray-900 mb-2 tracking-tight">ส่งเรื่องแจ้งเบาะแสสำเร็จ</h1>
+    <p class="text-gray-500 mb-8">ระบบได้รับเรื่องของท่านแล้ว ทีมสืบสวนจะดำเนินการโดยเร็ว</p>
+
+    <!-- Ref number -->
+    <div class="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6">
+        <p class="text-amber-600 text-xs font-bold uppercase tracking-widest mb-2">หมายเลขอ้างอิงของท่าน</p>
+        <p class="text-3xl font-bold text-amber-800 tracking-wider font-mono">@Model.ReferenceNumber</p>
+        <p class="text-amber-500 text-xs mt-2">โปรดบันทึกหมายเลขนี้ไว้สำหรับติดตามสถานะ</p>
+    </div>
+
+    <!-- Info list -->
+    <div class="card p-5 text-left mb-6 space-y-3">
+        @foreach (var info in new[] {
+            "ข้อมูลของท่านถูกเข้ารหัส AES-256 และเก็บเป็นความลับสูงสุด",
+            "ทีมสืบสวนจะได้รับแจ้งและเริ่มดำเนินการตรวจสอบ",
+            "ผลการดำเนินการจะแจ้งทาง SMS หรืออีเมลที่ท่านระบุ",
+        })
+        {
+            <div class="flex items-start gap-3 text-sm text-gray-600">
+                <div class="w-5 h-5 bg-amber-100 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                    <svg class="w-3 h-3 text-amber-600" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fill-rule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clip-rule="evenodd" />
+                    </svg>
+                </div>
+                @info
+            </div>
+        }
+    </div>
+
+    <!-- Actions -->
+    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <a asp-page="/Public/SubmitCorruption"
+           class="btn w-full sm:w-auto justify-center bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-400 shadow-sm">
+            แจ้งเรื่องใหม่
+        </a>
+        <a asp-page="/Public/Track" asp-route-ref="@Model.ReferenceNumber"
+           class="btn-secondary w-full sm:w-auto justify-center">
+            ติดตามสถานะ
+        </a>
+        <a href="/" class="btn-ghost w-full sm:w-auto justify-center">กลับหน้าแรก</a>
+    </div>
+
+</div>
+</div>

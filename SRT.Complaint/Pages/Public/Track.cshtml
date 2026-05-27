@@ -1,0 +1,630 @@
+@page
+@model SRT.Complaint.Pages.Public.TrackModel
+@using SRT.Complaint.Models
+@{
+    ViewData["Title"] = "ติดตามสถานะเรื่องร้องเรียน";
+    Layout = "_Layout";
+    var thCulture = new System.Globalization.CultureInfo("th-TH");
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+<div class="max-w-2xl mx-auto">
+
+    <!-- Header -->
+    <div class="mb-8">
+        <nav class="flex items-center gap-2 text-xs text-gray-400 mb-4" aria-label="breadcrumb">
+            <a href="/" class="hover:text-srt-navy transition">หน้าแรก</a>
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            <span class="text-gray-600 font-medium">ติดตามสถานะ</span>
+        </nav>
+        <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight">ติดตามสถานะเรื่องร้องเรียน</h1>
+        <p class="text-gray-500 mt-2">ใส่หมายเลขอ้างอิงที่ได้รับทาง SMS หรืออีเมลหลังจากยื่นเรื่อง</p>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert-success mb-5 animate-fade-in" role="alert">
+            <svg class="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+            @TempData["Success"]
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert-error mb-5 animate-fade-in" role="alert">@TempData["Error"]</div>
+    }
+
+    <!-- Search -->
+    <form method="get"
+          class="flex gap-2 bg-white border border-gray-200 rounded-2xl p-2 shadow-card mb-2">
+        <div class="flex-1 relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+            <input type="text" name="ref" id="track-ref-input" value="@Model.Ref" maxlength="30"
+                   placeholder="เลขอ้างอิง เช่น SRT-COMPL-2568-0001"
+                   aria-label="หมายเลขอ้างอิงเรื่องร้องเรียน"
+                   class="w-full bg-transparent border-0 text-sm text-gray-900 pl-10 pr-3 py-2.5
+                          focus:outline-none focus:ring-2 focus:ring-srt-navy focus:ring-inset uppercase placeholder:normal-case placeholder:text-gray-400" />
+        </div>
+        <button type="submit" class="btn-primary shrink-0">ค้นหา</button>
+    </form>
+    <p class="text-xs text-gray-400 mb-8 px-1">
+        หากลืมหมายเลขอ้างอิง กรุณาติดต่อเจ้าหน้าที่
+        <a href="tel:1690" class="font-semibold text-srt-navy hover:underline">☎ 1690</a>
+    </p>
+
+    <!-- Not found -->
+    @if (Model.Searched && Model.Complaint == null && Model.CorruptionReport == null && !Model.NeedsVerification)
+    {
+        <div class="card p-8 text-center animate-fade-in">
+            <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                          d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <p class="text-gray-900 font-bold mb-1">ไม่พบเรื่องร้องเรียน</p>
+            <p class="text-gray-500 text-sm">ไม่พบหมายเลขอ้างอิง <strong class="font-mono text-gray-700">@Model.Ref</strong> กรุณาตรวจสอบอีกครั้ง</p>
+        </div>
+    }
+
+    @* ── Phone Verification Step ── *@
+    @if (Model.NeedsVerification)
+    {
+        <div class="card overflow-hidden animate-fade-in">
+            <div class="bg-gradient-navy px-6 py-5">
+                <p class="text-blue-200 text-[11px] font-semibold uppercase tracking-wider mb-1">พบหมายเลขอ้างอิง</p>
+                <p class="font-bold text-white text-xl font-mono tracking-wide">@Model.Ref?.ToUpper()</p>
+            </div>
+            <div class="px-6 py-6">
+                <div class="flex items-start gap-3 mb-5">
+                    <div class="w-9 h-9 bg-srt-navy-50 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+                        <svg class="w-5 h-5 text-srt-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-bold text-gray-900 mb-0.5">ยืนยันตัวตน</p>
+                        <p class="text-sm text-gray-500">กรุณากรอกเบอร์โทรศัพท์ 4 ตัวสุดท้ายที่ใช้ยื่นเรื่อง เพื่อป้องกันการเข้าถึงข้อมูลโดยไม่ได้รับอนุญาต</p>
+                    </div>
+                </div>
+
+                @if (TempData["VerifyError"] != null)
+                {
+                    <div id="verify-error-msg" class="alert-error mb-4 animate-fade-in" role="alert" aria-live="assertive">@TempData["VerifyError"]</div>
+                }
+
+                <form method="post" asp-page-handler="Verify" asp-route-ref="@Model.Ref">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="Ref" value="@Model.Ref?.ToUpper()" />
+                    <div class="flex gap-3">
+                        <div class="flex-1">
+                            <label for="phone-last4" class="block text-xs font-semibold text-gray-600 mb-1.5">
+                                เบอร์โทร 4 ตัวสุดท้าย
+                                <span class="sr-only">(จำเป็น)</span>
+                            </label>
+                            <input type="text" id="phone-last4" name="PhoneLast4" maxlength="4" inputmode="numeric"
+                                   placeholder="เช่น 5678"
+                                   aria-required="true"
+                                   aria-describedby="verify-error-msg"
+                                   class="form-input w-full text-center text-lg font-mono tracking-widest"
+                                   autocomplete="off" autofocus />
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="btn-primary h-[42px] px-6">ยืนยัน</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    }
+
+    @* ══ GEN complaint ══ *@
+    @if (Model.Complaint is { } c)
+    {
+        int statusStep = c.Status switch
+            {
+                "Pending"      => 1,
+                "InProgress"   => 2,
+                "WaitingInfo"
+                or "Forwarded"
+                or "UnderReview" => 3,
+                "Resolved"
+                or "Closed"
+                or "Rejected"  => 4,
+                _              => 1
+            };
+            bool isRejected = c.Status == "Rejected";
+
+        <div class="card overflow-hidden mb-4 animate-fade-in">
+            <!-- Card header -->
+            <div class="bg-gradient-navy px-6 py-5 flex items-center justify-between">
+                <div>
+                    <p class="text-blue-200 text-[11px] font-semibold uppercase tracking-wider mb-1">
+                        เรื่องร้องเรียนทั่วไป
+                    </p>
+                    <p class="font-bold text-white text-xl font-mono tracking-wide">@c.ReferenceNumber</p>
+                </div>
+                <span class="@TrackModel.StatusColor(c.Status) px-3 py-1.5 rounded-full text-xs font-bold">
+                    @TrackModel.StatusLabel(c.Status)
+                </span>
+            </div>
+
+            <div class="px-6 py-5 space-y-5">
+                <!-- Meta -->
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">วันที่ยื่นเรื่อง</p>
+                        <p class="text-sm font-semibold text-gray-800">
+                            @c.CreatedAt.ToLocalTime().ToString("d MMM yyyy HH:mm", thCulture)
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">ประเภทเรื่อง</p>
+                        <p class="text-sm font-semibold text-gray-800">@(c.Category?.Name ?? "—")</p>
+                    </div>
+                    @if (!string.IsNullOrEmpty(c.SubjectStation))
+                    {
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">สถานที่</p>
+                            <p class="text-sm font-semibold text-gray-800">@c.SubjectStation</p>
+                        </div>
+                    }
+                    <div>
+                        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">ความสำคัญ</p>
+                        <p class="text-sm font-semibold text-gray-800">@TrackModel.PriorityLabel(c.Priority)</p>
+                    </div>
+                </div>
+
+                <hr class="border-gray-100" />
+
+                <!-- Description -->
+                <div>
+                    <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2">รายละเอียด</p>
+                    <p class="text-gray-700 text-sm leading-relaxed line-clamp-4">@c.Description</p>
+                </div>
+
+                @if (c.SlaDeadline.HasValue)
+                {
+                    var remaining = c.SlaDeadline.Value - DateTime.UtcNow;
+                    var overdue   = remaining.TotalHours < 0;
+                    var warn      = remaining.TotalHours < 24 && !overdue;
+                    <hr class="border-gray-100" />
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1">
+                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">กำหนดดำเนินการ</p>
+                            <p class="text-sm font-semibold text-gray-800">
+                                @c.SlaDeadline.Value.ToLocalTime().ToString("d MMM yyyy HH:mm", thCulture)
+                            </p>
+                        </div>
+                        @if (c.SlaBreached || overdue)
+                        {
+                            <span class="badge-critical">เกินกำหนด</span>
+                        }
+                        else if (warn)
+                        {
+                            <span class="badge-urgent">ใกล้ครบกำหนด</span>
+                        }
+                        else if (c.Status is "Closed" or "Resolved")
+                        {
+                            <span class="badge-resolved">ดำเนินการแล้ว</span>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* ── Status Stepper ── *@
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm px-5 py-4 mb-4">
+            @{
+                var steps = new[] { "รับเรื่อง", "ดำเนินการ", "พิจารณา", "เสร็จสิ้น" };
+            }
+            <div class="flex items-start">
+                @for (int si = 0; si < steps.Length; si++)
+                {
+                    bool done   = statusStep > si + 1;
+                    bool active = statusStep == si + 1;
+                    bool last   = si == steps.Length - 1;
+
+                    string circleCls = done
+                        ? "bg-srt-navy text-white"
+                        : active
+                            ? (isRejected ? "bg-red-500 text-white ring-4 ring-red-100" : "bg-srt-navy text-white ring-4 ring-blue-100")
+                            : "bg-gray-100 text-gray-400";
+                    string textCls = active ? (isRejected ? "text-red-600 font-bold" : "text-srt-navy font-bold")
+                                   : done   ? "text-gray-700 font-medium"
+                                            : "text-gray-400";
+                    string lineCls = done ? "bg-srt-navy" : "bg-gray-200";
+
+                    <div class="flex flex-col items-center @(last ? "w-auto" : "flex-1")">
+                        <div class="flex items-center w-full">
+                            <div class="w-8 h-8 rounded-full @circleCls flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300">
+                                @if (done)
+                                {
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                    </svg>
+                                }
+                                else if (active && isRejected)
+                                {
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                }
+                                else
+                                {
+                                    <span>@(si + 1)</span>
+                                }
+                            </div>
+                            @if (!last)
+                            {
+                                <div class="flex-1 h-0.5 mx-2 @lineCls transition-all duration-500"></div>
+                            }
+                        </div>
+                        <p class="text-[11px] @textCls mt-1.5 text-center leading-tight">@steps[si]</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* ── Timeline ── *@
+        @if (Model.Timeline.Any())
+        {
+            var tlList = Model.Timeline.ToList();
+            <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mb-4">
+                <h2 class="text-sm font-bold text-gray-900 mb-5 flex items-center gap-2">
+                    <svg class="w-4 h-4 text-srt-navy" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    ไทม์ไลน์การดำเนินการ
+                </h2>
+
+                <ol class="space-y-0">
+                    @for (int ti = 0; ti < tlList.Count; ti++)
+                    {
+                        var ev     = tlList[ti];
+                        bool last  = ti == tlList.Count - 1;
+
+                        string iconBg = ev.Type switch
+                        {
+                            "created"  => "bg-emerald-500",
+                            "status"   => "bg-blue-500",
+                            "reply"    => "bg-srt-navy",
+                            "closed"   => "bg-slate-500",
+                            "rejected" => "bg-red-400",
+                            _          => "bg-gray-400"
+                        };
+
+                        <li class="flex gap-0">
+                            <!-- Left: line + dot -->
+                            <div class="flex flex-col items-center w-10 shrink-0">
+                                <div class="w-9 h-9 @iconBg rounded-full flex items-center justify-center shadow-sm ring-4 ring-white z-10 shrink-0">
+                                    @if (ev.Type == "created")
+                                    {
+                                        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                    }
+                                    else if (ev.Type == "reply")
+                                    {
+                                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                  d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                        </svg>
+                                    }
+                                    else if (ev.Type == "closed")
+                                    {
+                                        <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                    }
+                                    else if (ev.Type == "rejected")
+                                    {
+                                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    }
+                                    else
+                                    {
+                                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                    }
+                                </div>
+                                @if (!last)
+                                {
+                                    <div class="w-px bg-gray-200 flex-1 mt-1 mb-1" style="min-height:2rem"></div>
+                                }
+                            </div>
+
+                            <!-- Right: content -->
+                            <div class="flex-1 pl-3 @(last ? "pb-0" : "pb-5") min-w-0">
+                                <div class="flex items-start justify-between gap-2 mb-0.5 pt-1.5">
+                                    <p class="text-sm font-semibold text-gray-900 leading-tight">@ev.Label</p>
+                                    <time class="text-[11px] text-gray-400 font-medium shrink-0 pt-0.5">
+                                        @ev.At.ToLocalTime().ToString("d MMM yy · HH:mm", thCulture)
+                                    </time>
+                                </div>
+                                @if (!string.IsNullOrEmpty(ev.Detail))
+                                {
+                                    <div class="mt-2 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+                                        <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">@ev.Detail</p>
+                                    </div>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ol>
+            </div>
+        }
+
+        @* ── Status banners ── *@
+        @if (c.Status is "Closed" or "Resolved")
+        {
+            <div class="alert-success mb-4">
+                <svg class="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <div>
+                    <p class="font-bold">เรื่องของท่านได้รับการดำเนินการแล้ว</p>
+                    @if (c.ClosedAt.HasValue)
+                    {
+                        <p class="text-xs mt-0.5 opacity-80">
+                            ปิดเมื่อ @c.ClosedAt.Value.ToLocalTime().ToString("d MMM yyyy HH:mm", thCulture)
+                        </p>
+                    }
+                </div>
+            </div>
+
+            @* ── Satisfaction Form ── *@
+            @if (!c.SatisfactionScore.HasValue)
+            {
+                <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mb-4">
+                    <h3 class="font-bold text-gray-900 text-sm mb-1 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                        </svg>
+                        ประเมินความพึงพอใจ
+                    </h3>
+                    <p class="text-xs text-gray-400 mb-5">ช่วยให้ รฟท. ปรับปรุงการให้บริการ</p>
+
+                    <form method="post" asp-page-handler="Satisfaction" asp-route-ref="@c.ReferenceNumber"
+                          onsubmit="return validateSatisfaction(event)">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="Ref" value="@c.ReferenceNumber" />
+                        <input type="hidden" name="SatisfactionScore" id="satisfactionScoreInput" value="" />
+
+                        <!-- Star buttons -->
+                        <fieldset class="border-0 p-0 m-0">
+                            <legend class="sr-only">ระดับความพึงพอใจ (1 ถึง 5 ดาว)</legend>
+                            <div class="flex justify-center gap-2 mb-3">
+                                @for (int star = 1; star <= 5; star++)
+                                {
+                                    <button type="button" data-val="@star"
+                                            onclick="selectStar(@star)"
+                                            onmouseover="hoverStar(@star)"
+                                            onmouseout="resetHover()"
+                                            class="star-btn w-12 h-12 transition-transform duration-100 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 rounded-lg"
+                                            aria-label="@star ดาว">
+                                        <svg class="w-full h-full text-gray-200 transition-colors duration-150" id="star-@star"
+                                             fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                        </svg>
+                                    </button>
+                                }
+                            </div>
+                        </fieldset>
+
+                        <!-- Score label -->
+                        <p id="starLabel" class="text-center text-sm text-gray-400 h-5 mb-5 transition-all duration-150">
+                            กรุณาเลือกระดับความพึงพอใจ
+                        </p>
+
+                        <textarea name="SatisfactionNote" maxlength="500" rows="2"
+                                  placeholder="ความคิดเห็นเพิ่มเติม (ไม่บังคับ)"
+                                  class="form-textarea w-full mb-4"></textarea>
+
+                        <button type="submit" class="btn-primary w-full justify-center">ส่งการประเมิน</button>
+                    </form>
+                </div>
+            }
+            else
+            {
+                <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-4 mb-4 flex items-center gap-3">
+                    <div class="flex gap-0.5">
+                        @for (int s = 1; s <= 5; s++)
+                        {
+                            <svg class="w-5 h-5 @(s <= c.SatisfactionScore ? "text-yellow-400" : "text-gray-200")"
+                                 fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                        }
+                    </div>
+                    <p class="text-sm text-gray-600">
+                        ท่านได้ประเมินความพึงพอใจแล้ว: <strong class="text-gray-900">@c.SatisfactionScore/5 ดาว</strong>
+                    </p>
+                </div>
+            }
+        }
+        else if (c.Status == "Rejected")
+        {
+            <div class="alert-error">
+                <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                    <p class="font-bold">เรื่องร้องเรียนของท่านไม่ได้รับการพิจารณา</p>
+                    <p class="text-xs mt-0.5 opacity-80">หากต้องการข้อมูลเพิ่มเติม กรุณาติดต่อ ☎ 1690</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert-info">
+                <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p>เจ้าหน้าที่กำลังดำเนินการ หากมีข้อสงสัยติดต่อ ☎ <a href="tel:1690" class="font-bold hover:underline">1690</a></p>
+            </div>
+        }
+    }
+
+    @* ══ COR report ══ *@
+    @if (Model.CorruptionReport is { } cor)
+    {
+        <div class="card overflow-hidden mb-5 border-amber-100 animate-fade-in">
+            <div class="bg-amber-600 px-6 py-5 flex items-center justify-between">
+                <div>
+                    <p class="text-amber-200 text-[11px] font-semibold uppercase tracking-wider mb-1">เรื่องแจ้งทุจริต</p>
+                    <p class="font-bold text-white text-xl font-mono tracking-wide">@cor.ReferenceNumber</p>
+                </div>
+                <span class="@TrackModel.StatusColor(cor.Status) px-3 py-1.5 rounded-full text-xs font-bold">
+                    @TrackModel.StatusLabel(cor.Status)
+                </span>
+            </div>
+            <div class="px-6 py-5 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">วันที่แจ้ง</p>
+                        <p class="text-sm font-semibold text-gray-800">
+                            @cor.CreatedAt.ToLocalTime().ToString("d MMM yyyy HH:mm", thCulture)
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">ประเภทผู้ถูกร้อง</p>
+                        <p class="text-sm font-semibold text-gray-800">
+                            @(cor.SubjectType == "Employee" ? "พนักงาน รฟท." :
+                              cor.SubjectType == "Department" ? "หน่วยงาน" :
+                              cor.SubjectType == "Contractor" ? "คู่สัญญา" : "ไม่ระบุ")
+                        </p>
+                    </div>
+                </div>
+                @if (cor.SlaDeadline.HasValue)
+                {
+                    <hr class="border-gray-100" />
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1">
+                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">กำหนดดำเนินการ</p>
+                            <p class="text-sm font-semibold text-gray-800">
+                                @cor.SlaDeadline.Value.ToLocalTime().ToString("d MMM yyyy HH:mm", thCulture)
+                            </p>
+                        </div>
+                        @if (cor.SlaBreached) { <span class="badge-critical">เกินกำหนด</span> }
+                        else if (cor.Status is "Closed" or "Rejected") { <span class="badge-resolved">ดำเนินการแล้ว</span> }
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (cor.Status is "Closed")
+        {
+            <div class="alert-success">
+                <svg class="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <div>
+                    <p class="font-bold">เรื่องได้รับการดำเนินการครบถ้วนแล้ว</p>
+                    <p class="text-xs mt-0.5 opacity-80">ขอบคุณที่แจ้งเบาะแสทุจริต</p>
+                </div>
+            </div>
+        }
+        else if (cor.Status == "Rejected")
+        {
+            <div class="alert-error">
+                <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                    <p class="font-bold">เรื่องร้องเรียนของท่านไม่ได้รับการพิจารณา</p>
+                    <p class="text-xs mt-0.5 opacity-80">หากต้องการข้อมูลเพิ่มเติม กรุณาติดต่อ ☎ 1690</p>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="alert-warning">
+                <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p>ทีมสืบสวนกำลังดำเนินการ ข้อมูลผู้แจ้งถูกเก็บเป็นความลับสนิท</p>
+            </div>
+        }
+    }
+
+    @if (!Model.Searched)
+    {
+        <div class="card p-12 text-center">
+            <div class="w-16 h-16 bg-srt-navy-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-srt-navy/40" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+            </div>
+            <p class="font-bold text-gray-900 mb-1">ค้นหาสถานะเรื่องของท่าน</p>
+            <p class="text-gray-500 text-sm">ใส่หมายเลขอ้างอิงแล้วกด "ค้นหา"</p>
+        </div>
+    }
+
+</div>
+</div>
+
+<script>
+(function () {
+    const LABELS = ['', 'ไม่พอใจเลย', 'ไม่ค่อยพอใจ', 'พอใช้ได้', 'พอใจ', 'พอใจมากที่สุด'];
+    const COLORS = ['', 'text-red-500', 'text-orange-400', 'text-amber-400', 'text-yellow-500', 'text-yellow-500'];
+    let selectedScore = 0;
+
+    function paintStars(count, color) {
+        for (let i = 1; i <= 5; i++) {
+            const svg = document.getElementById('star-' + i);
+            if (!svg) continue;
+            svg.className = 'w-full h-full transition-colors duration-100 ' +
+                (i <= count ? color : 'text-gray-200');
+        }
+    }
+
+    window.hoverStar = function (val) {
+        if (selectedScore === 0)
+            paintStars(val, 'text-yellow-300');
+    };
+
+    window.resetHover = function () {
+        if (selectedScore === 0) paintStars(0, '');
+        else paintStars(selectedScore, 'text-yellow-400');
+    };
+
+    window.selectStar = function (val) {
+        selectedScore = val;
+        const input = document.getElementById('satisfactionScoreInput');
+        if (input) input.value = val;
+        paintStars(val, 'text-yellow-400');
+        const lbl = document.getElementById('starLabel');
+        if (lbl) {
+            lbl.textContent = LABELS[val];
+            lbl.className = 'text-center text-sm font-semibold h-5 mb-5 transition-all duration-150 ' + COLORS[val];
+        }
+    };
+
+    window.validateSatisfaction = function (e) {
+        const input = document.getElementById('satisfactionScoreInput');
+        if (!input || !input.value) {
+            e.preventDefault();
+            const lbl = document.getElementById('starLabel');
+            if (lbl) {
+                lbl.textContent = 'กรุณาเลือกคะแนนก่อนส่ง';
+                lbl.className = 'text-center text-sm font-semibold h-5 mb-5 text-red-500 animate-pulse';
+            }
+            return false;
+        }
+        return true;
+    };
+})();
+</script>

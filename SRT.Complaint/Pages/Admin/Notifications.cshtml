@@ -1,0 +1,103 @@
+@page
+@model SRT.Complaint.Pages.Admin.NotificationsModel
+@{
+    ViewData["Title"] = "การแจ้งเตือน";
+}
+
+<div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-5 text-sm text-amber-800 flex gap-2">
+    <svg class="w-4 h-4 shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+    <span>ใช้ Placeholder เช่น <code class="font-mono bg-amber-100 px-1 rounded">{ReferenceNumber}</code>, <code class="font-mono bg-amber-100 px-1 rounded">{Status}</code>, <code class="font-mono bg-amber-100 px-1 rounded">{TrackingUrl}</code> ในข้อความ</span>
+</div>
+
+<div class="space-y-4">
+    @foreach (var t in Model.Templates)
+    {
+        <details class="bg-white rounded-xl border border-gray-200 shadow-sm group">
+            <summary class="flex items-center justify-between px-5 py-4 cursor-pointer list-none select-none
+                            hover:bg-gray-50/50 rounded-xl transition">
+                <div class="flex items-center gap-3">
+                    <div class="flex gap-1.5">
+                        @if (t.IsEmailEnabled)
+                        {
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700">Email</span>
+                        }
+                        else
+                        {
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-400">Email ปิด</span>
+                        }
+                        @if (t.IsSmsEnabled)
+                        {
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-700">SMS</span>
+                        }
+                        else
+                        {
+                            <span class="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-400">SMS ปิด</span>
+                        }
+                    </div>
+                    <span class="text-sm font-semibold text-gray-900">@t.LabelTh</span>
+                    <span class="text-xs text-gray-400 font-mono hidden sm:inline">@t.EventKey</span>
+                </div>
+                <svg class="w-4 h-4 text-gray-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </summary>
+            <div class="px-5 pb-5 border-t border-gray-100 pt-4">
+                <form method="post" asp-page-handler="SaveTemplate" class="space-y-4">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="SaveId" value="@t.Id" />
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        <div class="space-y-3">
+                            <h3 class="text-xs font-semibold text-blue-700 uppercase tracking-wide flex items-center gap-2">
+                                Email
+                                <label class="flex items-center gap-1.5 font-normal normal-case">
+                                    <input type="checkbox" name="SaveIsEmailEnabled" value="true"
+                                           @(t.IsEmailEnabled ? "checked" : "")
+                                           class="w-3.5 h-3.5 rounded border-gray-300 text-srt-navy" />
+                                    <span class="text-gray-600 text-xs">เปิดใช้งาน</span>
+                                </label>
+                            </h3>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">หัวข้อ Email</label>
+                                <input name="SaveEmailSubject" value="@t.EmailSubject"
+                                       class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-srt-navy" />
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">เนื้อหา Email (HTML ได้)</label>
+                                <textarea name="SaveEmailBody" rows="6"
+                                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-srt-navy resize-y">@t.EmailBody</textarea>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <h3 class="text-xs font-semibold text-green-700 uppercase tracking-wide flex items-center gap-2">
+                                SMS
+                                <label class="flex items-center gap-1.5 font-normal normal-case">
+                                    <input type="checkbox" name="SaveIsSmsEnabled" value="true"
+                                           @(t.IsSmsEnabled ? "checked" : "")
+                                           class="w-3.5 h-3.5 rounded border-gray-300 text-green-600" />
+                                    <span class="text-gray-600 text-xs">เปิดใช้งาน</span>
+                                </label>
+                            </h3>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">ข้อความ SMS (ไม่เกิน 160 ตัวอักษร)</label>
+                                <textarea name="SaveSmsBody" rows="4" maxlength="300"
+                                          class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-srt-navy resize-none">@t.SmsBody</textarea>
+                                <p class="text-xs text-gray-400 mt-1">SMS ภาษาไทย: ~70 ตัวอักษรต่อ 1 ข้อความ</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end pt-2 border-t border-gray-100">
+                        <button type="submit"
+                                class="bg-srt-navy text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-srt-navy-dark transition">
+                            บันทึก Template นี้
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </details>
+    }
+</div>

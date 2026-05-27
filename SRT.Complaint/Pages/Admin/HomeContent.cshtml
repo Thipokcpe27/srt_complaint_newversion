@@ -1,0 +1,173 @@
+@page
+@model SRT.Complaint.Pages.Admin.HomeContentModel
+@{
+    ViewData["Title"] = "จัดการเนื้อหาหน้าแรก";
+}
+
+<div class="mb-6 flex items-center justify-between">
+    <div>
+        <h1 class="text-xl font-bold text-gray-900">จัดการเนื้อหาหน้าแรก</h1>
+        <p class="text-sm text-gray-500 mt-1">แก้ไขเนื้อหาที่แสดงใน 3 popup ของหน้าแรก — รองรับ HTML และรูปภาพ</p>
+    </div>
+    <a href="/" target="_blank"
+       class="inline-flex items-center gap-1.5 text-xs text-srt-navy font-medium
+              border border-srt-navy/30 rounded-lg px-3 py-1.5 hover:bg-srt-navy/5 transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+        </svg>
+        ดูหน้าแรก
+    </a>
+</div>
+
+@if (TempData["Success"] is string msg)
+{
+    <div class="mb-5 flex items-center gap-2 px-4 py-3 bg-green-50 border border-green-200
+                text-green-700 text-sm rounded-xl">
+        <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+        @msg
+    </div>
+}
+
+<!-- Helper note -->
+<div class="mb-5 flex items-start gap-2 px-4 py-3 bg-blue-50 border border-blue-200 text-blue-700 text-xs rounded-xl">
+    <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <span>
+        เนื้อหาใช้ <strong>HTML</strong> — tag ที่แนะนำ:
+        <code class="bg-blue-100 px-1 rounded mx-0.5">&lt;ol class="step-list"&gt;</code>
+        <code class="bg-blue-100 px-1 rounded mx-0.5">&lt;dl class="contact-dl"&gt;</code>
+        <code class="bg-blue-100 px-1 rounded mx-0.5">&lt;ul class="trust-ul"&gt;</code>
+        <code class="bg-blue-100 px-1 rounded mx-0.5">&lt;img class="content-image" src="..."&gt;</code>
+        · Tailwind จะไม่ทำงานในหน้าแรก
+    </span>
+</div>
+
+<form method="post" id="content-form">
+    @Html.AntiForgeryToken()
+    <div asp-validation-summary="ModelOnly" class="alert-error mb-5 [&:empty]:hidden"></div>
+
+    <!-- Tabs -->
+    <div class="mb-5 flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+        <button type="button" id="tab-steps"
+                onclick="switchSection('steps')"
+                class="section-tab section-tab-active px-4 py-1.5 text-sm font-medium rounded-lg transition">
+            ขั้นตอน
+        </button>
+        <button type="button" id="tab-contact"
+                onclick="switchSection('contact')"
+                class="section-tab px-4 py-1.5 text-sm font-medium rounded-lg transition">
+            ช่องทางติดต่อ
+        </button>
+        <button type="button" id="tab-trust"
+                onclick="switchSection('trust')"
+                class="section-tab px-4 py-1.5 text-sm font-medium rounded-lg transition">
+            ความปลอดภัย
+        </button>
+    </div>
+
+    <!-- ── Section: Steps ── -->
+    <div id="section-steps" class="content-section">
+        @await Html.PartialAsync("_ContentBlockEditor", new ViewDataDictionary(ViewData)
+        {
+            ["Prefix"]      = "StepsInput",
+            ["Title"]       = Model.StepsInput.Title,
+            ["Body"]        = Model.StepsInput.Body,
+            ["UpdatedAt"]   = Model.Steps.UpdatedAt,
+            ["Label"]       = "ขั้นตอนการร้องเรียน",
+            ["Hint"]        = "ใช้ &lt;ol class=\"step-list\"&gt;&lt;li&gt;&lt;b&gt;หัวข้อ&lt;/b&gt;&lt;p&gt;รายละเอียด&lt;/p&gt;&lt;/li&gt;...&lt;/ol&gt; แล้วปิดด้วย &lt;p class=\"sla-note\"&gt;...&lt;/p&gt;"
+        })
+    </div>
+
+    <!-- ── Section: Contact ── -->
+    <div id="section-contact" class="content-section hidden">
+        @await Html.PartialAsync("_ContentBlockEditor", new ViewDataDictionary(ViewData)
+        {
+            ["Prefix"]      = "ContactInput",
+            ["Title"]       = Model.ContactInput.Title,
+            ["Body"]        = Model.ContactInput.Body,
+            ["UpdatedAt"]   = Model.Contact.UpdatedAt,
+            ["Label"]       = "ช่องทางติดต่อ",
+            ["Hint"]        = "ใช้ &lt;dl class=\"contact-dl\"&gt;&lt;div&gt;&lt;dt&gt;ป้ายกำกับ&lt;/dt&gt;&lt;dd&gt;ค่า&lt;/dd&gt;&lt;/div&gt;...&lt;/dl&gt;"
+        })
+    </div>
+
+    <!-- ── Section: Trust ── -->
+    <div id="section-trust" class="content-section hidden">
+        @await Html.PartialAsync("_ContentBlockEditor", new ViewDataDictionary(ViewData)
+        {
+            ["Prefix"]      = "TrustInput",
+            ["Title"]       = Model.TrustInput.Title,
+            ["Body"]        = Model.TrustInput.Body,
+            ["UpdatedAt"]   = Model.Trust.UpdatedAt,
+            ["Label"]       = "ความปลอดภัย & ความเป็นส่วนตัว",
+            ["Hint"]        = "ใช้ &lt;ul class=\"trust-ul\"&gt;&lt;li&gt;ข้อความ&lt;/li&gt;...&lt;/ul&gt; แล้วปิดด้วย &lt;p class=\"pdpa-note\"&gt;หมายเหตุ&lt;/p&gt;"
+        })
+    </div>
+
+    <div class="flex items-center gap-4 mt-6">
+        <button type="submit" class="btn-primary btn-lg">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            บันทึกทั้ง 3 ส่วน
+        </button>
+        <span class="text-xs text-gray-400">การเปลี่ยนแปลงมีผลทันทีสำหรับผู้ใช้ทุกคน</span>
+    </div>
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        var sections = ['steps', 'contact', 'trust'];
+
+        function switchSection(name) {
+            sections.forEach(function(s) {
+                var sec = document.getElementById('section-' + s);
+                var tab = document.getElementById('tab-' + s);
+                if (s === name) {
+                    sec.classList.remove('hidden');
+                    tab.classList.add('section-tab-active');
+                    tab.classList.remove('text-gray-500');
+                } else {
+                    sec.classList.add('hidden');
+                    tab.classList.remove('section-tab-active');
+                    tab.classList.add('text-gray-500');
+                }
+            });
+        }
+
+        function switchEditorTab(prefix, tab) {
+            var editorPane  = document.getElementById(prefix + '-editor');
+            var previewPane = document.getElementById(prefix + '-preview');
+            var editBtn     = document.getElementById(prefix + '-tab-edit');
+            var previewBtn  = document.getElementById(prefix + '-tab-preview');
+            var activeClass = 'bg-white shadow-sm text-gray-900';
+            var inactiveClass = 'text-gray-500 hover:text-gray-700';
+
+            if (tab === 'edit') {
+                editorPane.classList.remove('hidden');
+                previewPane.classList.add('hidden');
+                editBtn.className   = 'px-3 py-1 text-xs font-medium rounded-md transition ' + activeClass;
+                previewBtn.className = 'px-3 py-1 text-xs font-medium rounded-md transition ' + inactiveClass;
+            } else {
+                editorPane.classList.add('hidden');
+                previewPane.classList.remove('hidden');
+                previewBtn.className = 'px-3 py-1 text-xs font-medium rounded-md transition ' + activeClass;
+                editBtn.className    = 'px-3 py-1 text-xs font-medium rounded-md transition ' + inactiveClass;
+                document.getElementById(prefix + '-preview-content').innerHTML =
+                    document.getElementById(prefix + '_Body').value;
+            }
+        }
+    </script>
+
+    <style>
+        .section-tab-active { background: white; box-shadow: 0 1px 3px rgba(0,0,0,.08); color: #1b3a6e; font-weight: 600; }
+        .section-tab:not(.section-tab-active) { color: #6b7280; }
+        .section-tab:not(.section-tab-active):hover { color: #374151; }
+    </style>
+}

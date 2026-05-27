@@ -88,6 +88,19 @@ public class CorruptionService(
     public async Task CloseAsync(int id, string resolutionNote, int actorId, CancellationToken ct = default)
         => await UpdateStatusAsync(id, "Closed", actorId, resolutionNote, ct);
 
+    public async Task ReopenAsync(int id, int actorId, CancellationToken ct = default)
+    {
+        var report = await db.Reports.FindAsync([id], ct)
+            ?? throw new InvalidOperationException("Report not found");
+        if (report.Status != "Closed") throw new InvalidOperationException("Only closed reports can be reopened");
+
+        report.Status = "InProgress";
+        report.ClosedAt = null;
+        report.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync(ct);
+        await auditService.LogAsync("ReopenCorruptionCase", actorId, null, "CorruptionReport", id.ToString(), null, null, ct);
+    }
+
     public async Task<DecryptedReporterInfo> DecryptReporterInfoAsync(int reportId, int requestedById, string reason, string ipAddress, CancellationToken ct = default)
     {
         var report = await db.Reports.FindAsync([reportId], ct)
@@ -119,10 +132,124 @@ public class CorruptionService(
             .Take(pageSize)
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<CorruptionReport>> GetQueueFilteredAsync(CorruptionQueueFilter filter, CancellationToken ct = default)
+    {
+        var q = ApplyFilter(db.Reports.AsQueryable(), filter);
+        return await q
+            .OrderByDescending(r => r.SlaBreached)
+            .ThenBy(r => r.SlaDeadline)
+            .ThenBy(r => r.CreatedAt)
+            .Skip((filter.Page - 1) * filter.PageSize)
+            .Take(filter.PageSize)
+            .ToListAsync(ct);
+    }
+
+    public async Task<int> GetTotalCountAsync(CorruptionQueueFilter filter, CancellationToken ct = default)
+        => await ApplyFilter(db.Reports.AsQueryable(), filter).CountAsync(ct);
+
+    public async Task AddInvestigationLogAsync(int reportId, int authorId, string content, bool isConfidential, CancellationToken ct = default)
+    {
+        db.InvestigationLogs.Add(new InvestigationLog
+        {
+            ReportId = reportId,
+            AuthorId = authorId,
+            Content = content,
+            IsConfidential = isConfidential,
+            CreatedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync(ct);
+        await auditService.LogAsync("AddInvestigationLog", authorId, null, "CorruptionReport", reportId.ToString(), new { isConfidential }, null, ct);
+    }
+
+    public async Task<CorruptionDashboardStats> GetDashboardStatsAsync(CancellationToken ct = default)
+    {
+        var now = DateTime.UtcNow;
+        var todayStart = now.Date;
+        var yesterdayStart = todayStart.AddDays(-1);
+        var sevenDaysAgo = todayStart.AddDays(-6);
+        var slaWarnBefore = now.AddHours(24);
+        var thaiCulture = new System.Globalization.CultureInfo("th-TH");
+
+        var todayCount = await db.Reports.CountAsync(r => r.CreatedAt >= todayStart, ct);
+        var yesterdayCount = await db.Reports.CountAsync(r => r.CreatedAt >= yesterdayStart && r.CreatedAt < todayStart, ct);
+
+        var activeStatuses = new[] { "Pending", "InProgress" };
+        var activeReports = await db.Reports
+            .Where(r => activeStatuses.Contains(r.Status))
+            .Select(r => new { r.Status, r.SlaDeadline, r.SlaBreached })
+            .ToListAsync(ct);
+
+        var pendingCount    = activeReports.Count(r => r.Status == "Pending");
+        var inProgressCount = activeReports.Count(r => r.Status == "InProgress");
+        var slaBreachedCount = activeReports.Count(r => r.SlaBreached);
+        var slaWarningCount = activeReports.Count(r =>
+            !r.SlaBreached && r.SlaDeadline.HasValue && r.SlaDeadline <= slaWarnBefore);
+
+        var recentDates = await db.Reports
+            .Where(r => r.CreatedAt >= sevenDaysAgo)
+            .Select(r => r.CreatedAt)
+            .ToListAsync(ct);
+
+        var chartLabels = new List<string>();
+        var chartData   = new List<int>();
+        for (var i = 6; i >= 0; i--)
+        {
+            var day = todayStart.AddDays(-i);
+            chartLabels.Add(day.ToString("d MMM", thaiCulture));
+            chartData.Add(recentDates.Count(d => d.Date == day.Date));
+        }
+
+        var warningReports = await db.Reports
+            .Where(r => (r.SlaBreached || (r.SlaDeadline.HasValue && r.SlaDeadline <= slaWarnBefore))
+                     && activeStatuses.Contains(r.Status))
+            .OrderBy(r => r.SlaDeadline)
+            .Take(10)
+            .ToListAsync(ct);
+
+        var slaItems = warningReports.Select(r =>
+        {
+            string remaining;
+            if (r.SlaBreached || (r.SlaDeadline.HasValue && r.SlaDeadline < now))
+                remaining = "เกิน SLA แล้ว";
+            else if (r.SlaDeadline.HasValue)
+            {
+                var diff = r.SlaDeadline.Value - now;
+                remaining = diff.TotalHours < 1
+                    ? $"เหลือ {(int)diff.TotalMinutes} นาที"
+                    : $"เหลือ {(int)diff.TotalHours} ชั่วโมง";
+            }
+            else remaining = "-";
+
+            return new CorruptionSlaItem(
+                r.Id, r.ReferenceNumber, r.SubjectType, r.SubjectPersonName,
+                r.SlaBreached || (r.SlaDeadline.HasValue && r.SlaDeadline < now), remaining);
+        }).ToList();
+
+        return new CorruptionDashboardStats(
+            todayCount, yesterdayCount, pendingCount, inProgressCount,
+            slaWarningCount, slaBreachedCount, chartLabels, chartData, slaItems);
+    }
+
+    private static IQueryable<CorruptionReport> ApplyFilter(IQueryable<CorruptionReport> q, CorruptionQueueFilter filter)
+    {
+        if (!string.IsNullOrEmpty(filter.Status)) q = q.Where(r => r.Status == filter.Status);
+        return q;
+    }
+
     private async Task<string> GenerateReferenceNumberAsync(CancellationToken ct)
     {
         var thYear = DateTime.UtcNow.Year + 543;
-        var count = await db.Reports.CountAsync(ct) + 1;
-        return $"COR-{thYear}-{count:D5}";
+        var seq = await NextSequenceAsync("corruption.CorruptionSeq", ct);
+        return $"SRT-CORUPT-{thYear}-{seq:D4}";
+    }
+
+    private async Task<long> NextSequenceAsync(string sequenceName, CancellationToken ct)
+    {
+        var conn = db.Database.GetDbConnection();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = $"SELECT NEXT VALUE FOR {sequenceName}";
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync(ct);
+        return Convert.ToInt64(await cmd.ExecuteScalarAsync(ct));
     }
 }

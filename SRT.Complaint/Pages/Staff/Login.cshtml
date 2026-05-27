@@ -1,0 +1,190 @@
+@page
+@model SRT.Complaint.Pages.Staff.LoginModel
+@{
+    Layout = "_Layout";
+    ViewData["Title"] = "เข้าสู่ระบบเจ้าหน้าที่";
+}
+
+<div class="min-h-[calc(100vh-4rem)] flex items-stretch">
+
+    <!-- Left panel: Brand -->
+    <div class="hidden lg:flex lg:w-1/2 xl:w-5/12 relative overflow-hidden"
+         style="background: url('/images/srt-login-bg.jpg') center/cover no-repeat;">
+        <div class="absolute inset-0" style="background: rgba(10,28,70,0.62);" aria-hidden="true"></div>
+
+        <div class="relative z-10 flex flex-col justify-center px-12 py-16">
+            <div class="mb-10">
+                <div class="w-14 h-14 bg-white/15 border border-white/20 rounded-2xl flex items-center justify-center mb-6">
+                    <span class="text-white font-black text-xl leading-none">รฟท.</span>
+                </div>
+                <h1 class="text-3xl font-extrabold text-white mb-3 leading-tight">
+                    ระบบจัดการ<br />เรื่องร้องเรียน
+                </h1>
+                <p class="text-blue-200 text-sm leading-relaxed">
+                    การรถไฟแห่งประเทศไทย<br />เฉพาะเจ้าหน้าที่ รฟท. เท่านั้น
+                </p>
+            </div>
+
+            <!-- Feature list -->
+            <ul class="space-y-4">
+                @foreach (var f in new[] {
+                    ("จัดการคิวเรื่องร้องเรียน", "ดู รับ โอน และปิดเรื่องได้จากที่เดียว"),
+                    ("แดชบอร์ดแบบ Real-time", "ติดตามสถิติและ SLA อัปเดตทุกครั้งที่โหลด"),
+                    ("ระบบแจ้งเตือนอัตโนมัติ", "SMS/Email แจ้งผู้ร้องทุกขั้นตอน"),
+                })
+                {
+                    <li class="flex items-start gap-3">
+                        <div class="w-5 h-5 bg-srt-gold/20 border border-srt-gold/30 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                            <svg class="w-3 h-3 text-srt-gold" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div>
+                            <div class="text-white text-sm font-semibold">@f.Item1</div>
+                            <div class="text-blue-300 text-xs mt-0.5">@f.Item2</div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <!-- Right panel: Form -->
+    <div class="flex-1 flex items-center justify-center bg-gray-50 px-4 sm:px-8 py-16">
+        <div class="w-full max-w-sm">
+
+            <!-- Mobile logo -->
+            <div class="lg:hidden text-center mb-8">
+                <div class="w-14 h-14 bg-gradient-navy rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-glow-navy">
+                    <span class="text-white font-black text-xl leading-none">รฟท.</span>
+                </div>
+                <h1 class="text-xl font-bold text-gray-900">ระบบจัดการเรื่องร้องเรียน</h1>
+                <p class="text-gray-500 text-sm mt-0.5">การรถไฟแห่งประเทศไทย</p>
+            </div>
+
+            <div class="mb-8">
+                <h2 class="text-2xl font-extrabold text-gray-900 tracking-tight">เข้าสู่ระบบ</h2>
+                <p class="text-gray-500 text-sm mt-1.5">ใช้รหัสพนักงานและรหัสผ่านของท่าน</p>
+            </div>
+
+            @if (Model.ErrorMessage != null)
+            {
+                <div class="alert-error mb-6" role="alert">
+                    <svg class="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                    </svg>
+                    @Model.ErrorMessage
+                </div>
+            }
+
+            <form method="post" asp-route-returnUrl="@ViewData["ReturnUrl"]">
+                @Html.AntiForgeryToken()
+
+                <div class="space-y-5">
+                    <div>
+                        <label asp-for="Input.EmployeeCode" class="form-label">
+                            รหัสพนักงาน
+                        </label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
+                                </svg>
+                            </div>
+                            <input asp-for="Input.EmployeeCode"
+                                   autocomplete="username"
+                                   inputmode="numeric"
+                                   maxlength="7"
+                                   placeholder="เลข 7 หลัก เช่น 1234567"
+                                   data-block="digits-only"
+                                   class="form-input pl-10 font-mono tracking-widest" />
+                        </div>
+                        <span asp-validation-for="Input.EmployeeCode" class="form-error block mt-1.5"></span>
+                    </div>
+
+                    <div>
+                        <label asp-for="Input.Password" class="form-label">รหัสผ่าน</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                                <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                            </div>
+                            <input asp-for="Input.Password"
+                                   id="password-field"
+                                   autocomplete="current-password"
+                                   placeholder="••••••••"
+                                   data-block="thai"
+                                   class="form-input pl-10 pr-10" />
+                            <button type="button"
+                                    id="password-toggle-btn"
+                                    onclick="togglePassword()"
+                                    aria-pressed="false"
+                                    aria-label="แสดงรหัสผ่าน"
+                                    class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-400 hover:text-gray-600 transition focus:outline-none focus:ring-2 focus:ring-srt-navy focus:ring-offset-1 rounded">
+                                <svg id="eye-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                            </button>
+                        </div>
+                        <span asp-validation-for="Input.Password" class="form-error block mt-1.5"></span>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <input asp-for="Input.RememberMe" type="checkbox"
+                               class="w-4 h-4 rounded border-gray-300 text-srt-navy focus:ring-srt-navy" />
+                        <label asp-for="Input.RememberMe" class="text-sm text-gray-600 mb-0 font-normal">
+                            จดจำการเข้าสู่ระบบ 7 วัน
+                        </label>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(Model.TurnstileSiteKey))
+                {
+                    <div class="cf-turnstile mt-5"
+                         data-sitekey="@Model.TurnstileSiteKey"
+                         data-theme="light"
+                         data-language="th"
+                         data-appearance="always">
+                    </div>
+                }
+
+                <button type="submit"
+                        class="btn-primary w-full mt-4 py-3 text-base">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                    </svg>
+                    เข้าสู่ระบบ
+                </button>
+            </form>
+
+            <p class="text-center text-xs text-gray-400 mt-8">
+                เฉพาะเจ้าหน้าที่ รฟท. เท่านั้น<br />
+                หากมีปัญหาติดต่อ IT Support
+            </p>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    @if (!string.IsNullOrEmpty(Model.TurnstileSiteKey))
+    {
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    }
+    @await Html.PartialAsync("_ValidationScriptsPartial")
+    <script>
+        function togglePassword() {
+            const field = document.getElementById('password-field');
+            const icon  = document.getElementById('eye-icon');
+            const btn   = document.getElementById('password-toggle-btn');
+            const show  = field.type === 'password';
+            field.type  = show ? 'text' : 'password';
+            btn.setAttribute('aria-pressed', String(show));
+            btn.setAttribute('aria-label', show ? 'ซ่อนรหัสผ่าน' : 'แสดงรหัสผ่าน');
+            icon.innerHTML = show
+                ? '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />'
+                : '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />';
+        }
+    </script>
+}

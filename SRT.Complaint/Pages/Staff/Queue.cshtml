@@ -1,0 +1,263 @@
+@page
+@model SRT.Complaint.Pages.Staff.QueueModel
+@{
+    ViewData["Title"] = "คิวเรื่องร้องเรียน";
+}
+
+<!-- Page header -->
+<div class="page-header">
+    <div>
+        <h1 class="page-title">คิวเรื่องร้องเรียน</h1>
+        <p class="page-subtitle">
+            ทั้งหมด <strong class="text-gray-900">@Model.TotalCount</strong> รายการ
+        </p>
+    </div>
+    <a asp-page="/Staff/CreateComplaint" class="btn-primary">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        สร้างเรื่องใหม่
+    </a>
+</div>
+
+<!-- Filter Bar -->
+<form method="get" class="filter-bar">
+    <div class="flex flex-wrap items-end gap-3">
+
+        <div class="flex-1 min-w-[180px]">
+            <label class="form-label">ค้นหา</label>
+            <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <input type="search" name="Search" value="@Model.Search"
+                       placeholder="เลขอ้างอิง, ชื่อผู้ร้อง..."
+                       class="form-input pl-9" />
+            </div>
+        </div>
+
+        <div>
+            <label class="form-label">สถานะ</label>
+            <select name="Status" class="form-select">
+                <option value="">ทุกสถานะ</option>
+                <option value="Pending" selected="@(Model.Status == "Pending")">รอรับเรื่อง</option>
+                <option value="InProgress" selected="@(Model.Status == "InProgress")">กำลังดำเนินการ</option>
+                <option value="Resolved" selected="@(Model.Status == "Resolved")">แก้ไขแล้ว</option>
+                <option value="Closed" selected="@(Model.Status == "Closed")">ปิดเรื่อง</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="form-label">ความเร่งด่วน</label>
+            <select name="Priority" class="form-select">
+                <option value="">ทุกระดับ</option>
+                <option value="Critical" selected="@(Model.Priority == "Critical")">เร่งด่วนมาก</option>
+                <option value="Urgent" selected="@(Model.Priority == "Urgent")">เร่งด่วน</option>
+                <option value="High" selected="@(Model.Priority == "High")">สำคัญ</option>
+                <option value="Normal" selected="@(Model.Priority == "Normal")">ปกติ</option>
+                <option value="Low" selected="@(Model.Priority == "Low")">ข้อเสนอแนะ</option>
+            </select>
+        </div>
+
+        <div>
+            <label class="form-label">ประเภท</label>
+            <select name="CategoryId" class="form-select">
+                <option value="">ทุกประเภท</option>
+                @foreach (var cat in Model.CategoryOptions)
+                {
+                    <option value="@cat.Value" selected="@(Model.CategoryId?.ToString() == cat.Value)">@cat.Text</option>
+                }
+            </select>
+        </div>
+
+        <div class="flex items-center gap-2 mt-4 sm:mt-0">
+            <button type="submit" class="btn-primary btn-sm">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                กรอง
+            </button>
+
+            @if (!string.IsNullOrEmpty(Model.Search) || !string.IsNullOrEmpty(Model.Status)
+              || !string.IsNullOrEmpty(Model.Priority) || Model.CategoryId.HasValue)
+            {
+                <a asp-page="/Staff/Queue" class="btn-ghost btn-sm">ล้าง</a>
+            }
+        </div>
+    </div>
+</form>
+
+<!-- Table -->
+<div class="card overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="data-table w-full">
+            <thead>
+                <tr>
+                    <th>เลขที่อ้างอิง</th>
+                    <th>ประเภท</th>
+                    <th>ผู้ร้อง</th>
+                    <th>ความเร่งด่วน</th>
+                    <th>สถานะ</th>
+                    <th>ผู้รับผิดชอบ</th>
+                    <th>SLA</th>
+                    <th>วันที่รับ</th>
+                    <th class="w-32"></th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (!Model.Complaints.Any())
+                {
+                    <tr>
+                        <td colspan="9">
+                            <div class="empty-state">
+                                <div class="empty-state-icon">
+                                    <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    </svg>
+                                </div>
+                                <p class="font-semibold text-gray-500 text-sm">ไม่พบเรื่องร้องเรียน</p>
+                                <p class="text-gray-400 text-xs mt-1">ลองปรับเงื่อนไขการกรอง</p>
+                            </div>
+                        </td>
+                    </tr>
+                }
+                @foreach (var item in Model.Complaints)
+                {
+                    <tr>
+                        <td>
+                            <a asp-page="/Staff/CaseDetail" asp-route-id="@item.Id"
+                               class="text-srt-navy font-bold hover:underline font-mono text-xs">
+                                @item.ReferenceNumber
+                            </a>
+                        </td>
+                        <td class="max-w-[140px]">
+                            <span class="truncate block text-gray-700">@item.CategoryName</span>
+                        </td>
+                        <td class="text-gray-700">@item.ReporterName</td>
+                        <td>
+                            <span class="@(item.Priority == "Critical" ? "priority-critical" :
+                                          item.Priority == "Urgent"   ? "priority-urgent" :
+                                          item.Priority == "High"     ? "priority-high" :
+                                                                        "priority-normal")">
+                                @item.PriorityLabel
+                            </span>
+                        </td>
+                        <td>
+                            <span class="@(item.Status == "Pending"    ? "badge-pending" :
+                                          item.Status == "InProgress"  ? "badge-progress" :
+                                          item.Status == "Resolved"    ? "badge-resolved" :
+                                          item.Status == "Closed"      ? "badge-closed" :
+                                          item.Status == "Rejected"    ? "badge-rejected" : "badge-closed")">
+                                @item.StatusLabel
+                            </span>
+                        </td>
+                        <td>
+                            @if (item.AssignedToName != null)
+                            {
+                                <span class="inline-flex items-center gap-1.5 text-xs text-gray-600">
+                                    <span class="w-5 h-5 bg-srt-navy-50 rounded-lg flex items-center justify-center text-[10px] font-bold text-srt-navy shrink-0">
+                                        @item.AssignedToName[0]
+                                    </span>
+                                    @item.AssignedToName
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-gray-400 text-xs">—</span>
+                            }
+                        </td>
+                        <td class="whitespace-nowrap">
+                            @if (item.SlaBreached)
+                            {
+                                <span class="badge-critical text-[10px]">เกิน SLA</span>
+                            }
+                            else if (item.SlaWarning)
+                            {
+                                <span class="badge-urgent text-[10px]">@item.SlaRemainingText</span>
+                            }
+                            else
+                            {
+                                <span class="text-gray-400 text-xs">@item.SlaRemainingText</span>
+                            }
+                        </td>
+                        <td class="text-gray-400 text-xs whitespace-nowrap">
+                            @item.CreatedAt.ToLocalTime().ToString("dd/MM/yy HH:mm")
+                        </td>
+                        <td class="text-right">
+                            @if (item.AssignedToId == null && item.Status == "Pending")
+                            {
+                                <form method="post" asp-page-handler="Claim" asp-route-id="@item.Id" class="inline">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn-primary btn-sm">
+                                        รับเรื่อง
+                                    </button>
+                                </form>
+                            }
+                            else
+                            {
+                                <a asp-page="/Staff/CaseDetail" asp-route-id="@item.Id"
+                                   class="btn-secondary btn-sm">
+                                    ดูรายละเอียด
+                                </a>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pagination -->
+@if (Model.TotalPages > 1)
+{
+    <div class="flex items-center justify-between mt-5">
+        <p class="text-sm text-gray-500">
+            แสดง <strong>@Model.PageStart–@Model.PageEnd</strong> จาก <strong>@Model.TotalCount</strong> รายการ
+        </p>
+        <div class="flex items-center gap-1.5">
+            @if (Model.CurrentPage > 1)
+            {
+                <a asp-page="/Staff/Queue"
+                   asp-route-currentPage="@(Model.CurrentPage - 1)" asp-route-search="@Model.Search"
+                   asp-route-status="@Model.Status" asp-route-priority="@Model.Priority"
+                   asp-route-categoryId="@Model.CategoryId"
+                   class="btn-ghost btn-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </a>
+            }
+            @{
+                var startPage = Math.Max(1, Model.CurrentPage - 2);
+                var endPage   = Math.Min(Model.TotalPages, Model.CurrentPage + 2);
+            }
+            @for (var p = startPage; p <= endPage; p++)
+            {
+                <a asp-page="/Staff/Queue"
+                   asp-route-currentPage="@p" asp-route-search="@Model.Search"
+                   asp-route-status="@Model.Status" asp-route-priority="@Model.Priority"
+                   asp-route-categoryId="@Model.CategoryId"
+                   class="@(p == Model.CurrentPage
+                       ? "bg-srt-navy text-white px-3.5 py-1.5 rounded-xl text-sm font-bold"
+                       : "btn-ghost btn-sm px-3.5")">
+                    @p
+                </a>
+            }
+            @if (Model.CurrentPage < Model.TotalPages)
+            {
+                <a asp-page="/Staff/Queue"
+                   asp-route-currentPage="@(Model.CurrentPage + 1)" asp-route-search="@Model.Search"
+                   asp-route-status="@Model.Status" asp-route-priority="@Model.Priority"
+                   asp-route-categoryId="@Model.CategoryId"
+                   class="btn-ghost btn-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+            }
+        </div>
+    </div>
+}

@@ -4,9 +4,14 @@
     var userName = User.FindFirstValue("FullName") ?? User.Identity?.Name ?? "เจ้าหน้าที่";
     var empCode  = User.FindFirstValue("EmployeeCode") ?? "";
 
-    // Determine active nav based on current page path
     var currentPath = ViewContext.HttpContext.Request.Path.Value ?? "";
     bool IsActive(string prefix) => currentPath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase);
+
+    // Avatar initials
+    var initials = string.Join("", userName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                                           .Take(2)
+                                           .Select(w => w[0].ToString()));
+    if (initials.Length == 0) initials = "รฟ";
 }
 <!DOCTYPE html>
 <html lang="th">
@@ -17,77 +22,98 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
-    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
 
     @await RenderSectionAsync("Head", required: false)
 </head>
-<body class="h-screen flex overflow-hidden bg-gray-100 font-thai antialiased">
+<body class="h-screen flex overflow-hidden bg-slate-50 font-thai antialiased">
+
+    <!-- Skip navigation — WCAG 2.4.1 -->
+    <a href="#main-content"
+       class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999]
+              focus:bg-srt-navy focus:text-white focus:px-4 focus:py-2 focus:rounded-lg
+              focus:text-sm focus:font-semibold focus:shadow-lg">
+        ข้ามไปยังเนื้อหาหลัก
+    </a>
 
     <!-- ═══ SIDEBAR ═══ -->
     <aside id="sidebar"
-           class="w-64 bg-srt-navy text-white flex flex-col shrink-0 shadow-xl
+           class="w-[240px] bg-gradient-sidebar flex flex-col shrink-0 shadow-2xl
                   fixed inset-y-0 left-0 z-50 transition-transform duration-300
-                  md:static md:translate-x-0"
+                  md:static md:translate-x-0 scrollbar-thin"
            aria-label="เมนูระบบ">
 
         <!-- Logo -->
-        <div class="flex items-center gap-3 px-5 py-4 border-b border-white/15">
-            <div class="w-9 h-9 bg-white rounded-full flex items-center justify-center shrink-0">
-                <span class="text-srt-navy font-black text-[10px] leading-none">รฟท.</span>
-            </div>
-            <div class="leading-tight min-w-0">
-                <div class="font-semibold text-sm truncate">การรถไฟแห่งประเทศไทย</div>
-                <div class="text-blue-300 text-[11px]">ระบบจัดการเรื่องร้องเรียน</div>
+        <div class="flex items-center gap-2 px-4 h-16 border-b border-white/10 shrink-0">
+            <img src="~/images/srt-logo.png"
+                 alt="การรถไฟแห่งประเทศไทย"
+                 class="h-10 w-auto object-contain shrink-0"
+                 style="filter: brightness(0) invert(1);" />
+            <div class="text-slate-400 text-[14px] leading-tight min-w-0">
+                <div>ระบบจัดการ</div>
+                <div>เรื่องร้องเรียน</div>
             </div>
         </div>
 
         <!-- User info -->
-        <div class="px-5 py-3 border-b border-white/15 bg-white/5">
-            <div class="text-xs text-blue-300 mb-0.5">ผู้ใช้งาน</div>
-            <div class="font-medium text-sm truncate">@userName</div>
-            @if (!string.IsNullOrEmpty(empCode))
-            {
-                <div class="text-xs text-blue-300">รหัส @empCode</div>
-            }
-            <span class="mt-1.5 inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-srt-gold/20 text-srt-gold-light border border-srt-gold/30">
-                @(userRole switch {
-                    "GeneralOfficer"    => "เจ้าหน้าที่รับเรื่องทั่วไป",
-                    "CorruptionOfficer" => "เจ้าหน้าที่ทุจริต",
-                    "SuperAdmin"        => "ผู้ดูแลระบบ",
-                    _                  => userRole
-                })
-            </span>
+        <div class="px-4 py-4 border-b border-white/10 shrink-0">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-srt-gold/20 border border-srt-gold/30 flex items-center justify-center shrink-0">
+                    <span class="text-srt-gold-light font-bold text-xs">@initials</span>
+                </div>
+                <div class="min-w-0">
+                    <div class="font-semibold text-white text-sm truncate">@userName</div>
+                    <div class="text-[11px] text-slate-400">
+                        @(userRole switch {
+                            "GeneralOfficer"    => "เจ้าหน้าที่รับเรื่อง",
+                            "CorruptionOfficer" => "เจ้าหน้าที่ทุจริต",
+                            "SuperAdmin"        => "ผู้ดูแลระบบ",
+                            _                  => userRole
+                        })
+                        @if (!string.IsNullOrEmpty(empCode))
+                        {
+                            <span> · @empCode</span>
+                        }
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Navigation -->
-        <nav class="flex-1 overflow-y-auto py-4 px-3 space-y-0.5" aria-label="เมนูหลัก">
+        <nav class="flex-1 overflow-y-auto py-3 px-3 scrollbar-thin" aria-label="เมนูหลัก">
 
             @if (userRole is "GeneralOfficer" or "SuperAdmin")
             {
-                <p class="px-3 pt-2 pb-1 text-[10px] font-semibold text-blue-400 uppercase tracking-widest">เรื่องทั่วไป</p>
+                <p class="section-title">เรื่องทั่วไป</p>
                 <a asp-page="/Staff/Dashboard"
-                   class="@(IsActive("/Staff/Dashboard") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition group">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Staff/Dashboard") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                              d="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v2a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10-3a1 1 0 011-1h4a1 1 0 011 1v7a1 1 0 01-1 1h-4a1 1 0 01-1-1v-7z" />
                     </svg>
                     แดชบอร์ด
                 </a>
                 <a asp-page="/Staff/Queue"
-                   class="@(IsActive("/Staff/Queue") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Staff/Queue") || IsActive("/Staff/CaseDetail") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                     </svg>
                     คิวเรื่องร้องเรียน
                 </a>
+                <a asp-page="/Staff/CreateComplaint"
+                   class="sidebar-link @(IsActive("/Staff/CreateComplaint") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 4v16m8-8H4" />
+                    </svg>
+                    สร้างเรื่องร้องเรียน
+                </a>
                 <a asp-page="/Staff/Workload"
-                   class="@(IsActive("/Staff/Workload") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Staff/Workload") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
                     </svg>
@@ -97,20 +123,18 @@
 
             @if (userRole is "CorruptionOfficer" or "SuperAdmin")
             {
-                <p class="px-3 pt-4 pb-1 text-[10px] font-semibold text-blue-400 uppercase tracking-widest">เรื่องทุจริต</p>
+                <p class="section-title">เรื่องทุจริต</p>
                 <a asp-page="/Corruption/Dashboard"
-                   class="@(IsActive("/Corruption/Dashboard") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Corruption/Dashboard") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                     แดชบอร์ดทุจริต
                 </a>
                 <a asp-page="/Corruption/Queue"
-                   class="@(IsActive("/Corruption/Queue") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Corruption/Queue") || IsActive("/Corruption/CaseDetail") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                     </svg>
@@ -120,11 +144,13 @@
 
             @if (userRole == "SuperAdmin")
             {
-                <p class="px-3 pt-4 pb-1 text-[10px] font-semibold text-blue-400 uppercase tracking-widest">ผู้ดูแลระบบ</p>
+                <p class="section-title">ผู้ดูแลระบบ</p>
+
+                <!-- ── ภาพรวม ── -->
+                <p class="section-subtitle">ภาพรวม</p>
                 <a asp-page="/Admin/Dashboard"
-                   class="@(IsActive("/Admin/Dashboard") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Admin/Dashboard") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -132,79 +158,105 @@
                     </svg>
                     ภาพรวมระบบ
                 </a>
+                <a asp-page="/Admin/Reports"
+                   class="sidebar-link @(IsActive("/Admin/Reports") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    รายงาน
+                </a>
+
+                <!-- ── ตั้งค่าระบบ ── -->
+                <p class="section-subtitle">ตั้งค่าระบบ</p>
                 <a asp-page="/Admin/Users"
-                   class="@(IsActive("/Admin/Users") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Admin/Users") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
                     จัดการเจ้าหน้าที่
                 </a>
                 <a asp-page="/Admin/Categories"
-                   class="@(IsActive("/Admin/Categories") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Admin/Categories") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                     </svg>
                     หมวดหมู่
                 </a>
                 <a asp-page="/Admin/SlaSettings"
-                   class="@(IsActive("/Admin/SlaSettings") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Admin/SlaSettings") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    SLA Settings
+                    ตั้งค่า SLA
                 </a>
                 <a asp-page="/Admin/Notifications"
-                   class="@(IsActive("/Admin/Notifications") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Admin/Notifications") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                     </svg>
                     การแจ้งเตือน
                 </a>
+
+                <!-- ── เนื้อหา ── -->
+                <p class="section-subtitle">เนื้อหา</p>
+                <a asp-page="/Admin/Terms"
+                   class="sidebar-link @(IsActive("/Admin/Terms") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    หลักเกณฑ์ร้องเรียน
+                </a>
+                <a asp-page="/Admin/HomeContent"
+                   class="sidebar-link @(IsActive("/Admin/HomeContent") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                    </svg>
+                    เนื้อหาหน้าแรก
+                </a>
+
+                <!-- ── Developer ── -->
+                <p class="section-subtitle">Developer</p>
                 <a asp-page="/Admin/ApiKeys"
-                   class="@(IsActive("/Admin/ApiKeys") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Admin/ApiKeys") || IsActive("/Admin/ApiKeyUsage") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                     </svg>
                     API Keys
                 </a>
+                <a asp-page="/Admin/Webhooks"
+                   class="sidebar-link @(IsActive("/Admin/Webhooks") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Webhooks
+                </a>
                 <a asp-page="/Admin/AuditLog"
-                   class="@(IsActive("/Admin/AuditLog") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   class="sidebar-link @(IsActive("/Admin/AuditLog") ? "sidebar-link-active" : "")">
+                    <svg class="w-4 h-4 shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     Audit Log
                 </a>
-                <a asp-page="/Admin/Reports"
-                   class="@(IsActive("/Admin/Reports") ? "bg-white/20 text-white" : "text-blue-100 hover:bg-white/10 hover:text-white")
-                          flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                    รายงาน
-                </a>
             }
         </nav>
 
         <!-- Logout -->
-        <div class="px-3 py-4 border-t border-white/15">
+        <div class="px-3 py-4 border-t border-white/10 shrink-0">
             <form method="post" asp-page="/Staff/Logout">
                 @Html.AntiForgeryToken()
                 <button type="submit"
-                        class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-blue-200 hover:bg-white/10 hover:text-white transition">
-                    <svg class="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="sidebar-link w-full text-slate-400 hover:text-red-300 hover:bg-red-500/10">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
@@ -216,59 +268,77 @@
 
     <!-- Sidebar overlay (mobile) -->
     <div id="sidebar-overlay"
-         class="hidden fixed inset-0 bg-black/50 z-40 md:hidden"
+         class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
          onclick="toggleSidebar()"></div>
 
     <!-- ═══ MAIN AREA ═══ -->
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         <!-- Top header bar -->
-        <header class="bg-white border-b border-gray-200 h-14 flex items-center justify-between px-4 sm:px-6 shrink-0 shadow-sm z-10">
+        <header class="bg-white border-b border-gray-100 h-16 flex items-center justify-between px-5 shrink-0 shadow-sm z-10">
             <!-- Mobile sidebar toggle -->
             <button type="button"
                     onclick="toggleSidebar()"
-                    class="md:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100 text-gray-600 transition"
+                    class="md:hidden p-2 -ml-1 rounded-xl hover:bg-gray-100 text-gray-500 transition"
                     aria-label="เปิด/ปิดเมนู">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
             </button>
 
-            <!-- Breadcrumb / page title -->
-            <div class="flex items-center gap-2 text-sm text-gray-500 ml-2 md:ml-0">
-                <a asp-page="/Public/Index" class="hover:text-srt-navy transition">รฟท.</a>
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <!-- Breadcrumb -->
+            <div class="flex items-center gap-2 text-sm ml-2 md:ml-0">
+                <a asp-page="/Index" class="text-gray-400 hover:text-srt-navy transition text-xs">รฟท.</a>
+                <svg class="w-3 h-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                 </svg>
-                <span class="text-gray-800 font-medium">@ViewData["Title"]</span>
+                <span class="text-gray-800 font-semibold text-sm">@ViewData["Title"]</span>
             </div>
 
-            <!-- Right: SLA warning badge + date/time -->
-            <div class="flex items-center gap-3 text-sm text-gray-500">
+            <!-- Right: date -->
+            <div class="flex items-center gap-3 text-sm">
                 <time datetime="@DateTime.UtcNow.ToString("yyyy-MM-dd")"
-                      class="hidden sm:block text-xs">
+                      class="hidden sm:block text-xs text-gray-400 font-medium">
                     @DateTime.Now.ToString("d MMMM yyyy", new System.Globalization.CultureInfo("th-TH"))
                 </time>
+                <div class="w-8 h-8 rounded-xl bg-srt-navy-50 flex items-center justify-center">
+                    <span class="text-srt-navy font-bold text-xs">@initials</span>
+                </div>
             </div>
         </header>
 
         <!-- Flash messages -->
         @if (TempData["Success"] is string successMsg)
         {
-            <div class="alert-success mx-6 mt-4" role="alert">
-                <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                </svg>
-                <span>@successMsg</span>
+            <div class="mx-6 mt-4 animate-fade-in" role="alert">
+                <div class="alert-success">
+                    <svg class="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                    </svg>
+                    <span>@successMsg</span>
+                </div>
             </div>
         }
         @if (TempData["Error"] is string errorMsg)
         {
-            <div class="alert-error mx-6 mt-4" role="alert">
-                <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9a1 1 0 012 0v4a1 1 0 01-2 0V9zm0 6a1 1 0 112 0 1 1 0 01-2 0z" clip-rule="evenodd" />
-                </svg>
-                <span>@errorMsg</span>
+            <div class="mx-6 mt-4 animate-fade-in" role="alert">
+                <div class="alert-error">
+                    <svg class="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9a1 1 0 012 0v4a1 1 0 01-2 0V9zm0 6a1 1 0 112 0 1 1 0 01-2 0z" clip-rule="evenodd" />
+                    </svg>
+                    <span>@errorMsg</span>
+                </div>
+            </div>
+        }
+        @if (TempData["Warning"] is string warnMsg)
+        {
+            <div class="mx-6 mt-4 animate-fade-in" role="alert">
+                <div class="alert-warning">
+                    <svg class="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    <span>@warnMsg</span>
+                </div>
             </div>
         }
 
@@ -280,6 +350,7 @@
 
     <!-- SCRIPTS -->
     <script src="~/lib/htmx.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr" defer></script>
     <script src="~/js/site.js" asp-append-version="true" defer></script>
     <script>
         function toggleSidebar() {

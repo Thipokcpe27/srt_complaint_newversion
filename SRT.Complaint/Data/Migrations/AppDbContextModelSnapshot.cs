@@ -247,6 +247,10 @@ namespace SRT.Complaint.Data.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("ReporterIdCard")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
                     b.Property<string>("ReporterName")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -275,6 +279,9 @@ namespace SRT.Complaint.Data.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<int?>("SubCategoryId")
+                        .HasColumnType("int");
+
                     b.Property<string>("SubjectStation")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -290,6 +297,8 @@ namespace SRT.Complaint.Data.Migrations
 
                     b.HasIndex("ReferenceNumber")
                         .IsUnique();
+
+                    b.HasIndex("SubCategoryId");
 
                     b.ToTable("Complaints", "dbo");
                 });
@@ -455,7 +464,7 @@ namespace SRT.Complaint.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("AuthorId")
+                    b.Property<int?>("AuthorId")
                         .HasColumnType("int");
 
                     b.Property<int>("ComplaintId")
@@ -480,6 +489,113 @@ namespace SRT.Complaint.Data.Migrations
                     b.HasIndex("ComplaintId");
 
                     b.ToTable("ComplaintNotes", "dbo");
+                });
+
+            modelBuilder.Entity("SRT.Complaint.Models.ComplaintSubCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CategoryId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.ToTable("ComplaintSubCategories", "dbo");
+                });
+
+            modelBuilder.Entity("SRT.Complaint.Models.ComplaintTerms", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UpdatedById");
+
+                    b.ToTable("ComplaintTerms", "dbo");
+                });
+
+            modelBuilder.Entity("SRT.Complaint.Models.ContentBlock", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("BodyHtml")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ImagePath")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("UpdatedById")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedById");
+
+                    b.ToTable("ContentBlocks", "dbo");
                 });
 
             modelBuilder.Entity("SRT.Complaint.Models.ComplaintTransferLog", b =>
@@ -766,6 +882,9 @@ namespace SRT.Complaint.Data.Migrations
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("bit");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(512)
@@ -775,6 +894,12 @@ namespace SRT.Complaint.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<byte[]>("TempPasswordEncrypted")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<DateTime?>("TempPasswordExpiresAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -944,9 +1069,15 @@ namespace SRT.Complaint.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("SRT.Complaint.Models.ComplaintSubCategory", "SubCategory")
+                        .WithMany("Complaints")
+                        .HasForeignKey("SubCategoryId");
+
                     b.Navigation("AssignedTo");
 
                     b.Navigation("Category");
+
+                    b.Navigation("SubCategory");
                 });
 
             modelBuilder.Entity("SRT.Complaint.Models.ComplaintAttachment", b =>
@@ -964,9 +1095,7 @@ namespace SRT.Complaint.Data.Migrations
                 {
                     b.HasOne("SRT.Complaint.Models.StaffUser", "Author")
                         .WithMany()
-                        .HasForeignKey("AuthorId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .HasForeignKey("AuthorId");
 
                     b.HasOne("SRT.Complaint.Models.Complaint", "Complaint")
                         .WithMany("Notes")
@@ -977,6 +1106,36 @@ namespace SRT.Complaint.Data.Migrations
                     b.Navigation("Author");
 
                     b.Navigation("Complaint");
+                });
+
+            modelBuilder.Entity("SRT.Complaint.Models.ComplaintSubCategory", b =>
+                {
+                    b.HasOne("SRT.Complaint.Models.ComplaintCategory", "Category")
+                        .WithMany("SubCategories")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+                });
+
+            modelBuilder.Entity("SRT.Complaint.Models.ComplaintTerms", b =>
+                {
+                    b.HasOne("SRT.Complaint.Models.StaffUser", "UpdatedBy")
+                        .WithMany()
+                        .HasForeignKey("UpdatedById");
+
+                    b.Navigation("UpdatedBy");
+                });
+
+            modelBuilder.Entity("SRT.Complaint.Models.ContentBlock", b =>
+                {
+                    b.HasOne("SRT.Complaint.Models.StaffUser", "UpdatedBy")
+                        .WithMany()
+                        .HasForeignKey("UpdatedById")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("UpdatedBy");
                 });
 
             modelBuilder.Entity("SRT.Complaint.Models.ComplaintTransferLog", b =>
@@ -1056,6 +1215,13 @@ namespace SRT.Complaint.Data.Migrations
                 });
 
             modelBuilder.Entity("SRT.Complaint.Models.ComplaintCategory", b =>
+                {
+                    b.Navigation("Complaints");
+
+                    b.Navigation("SubCategories");
+                });
+
+            modelBuilder.Entity("SRT.Complaint.Models.ComplaintSubCategory", b =>
                 {
                     b.Navigation("Complaints");
                 });
