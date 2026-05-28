@@ -286,6 +286,12 @@
     }
     <partial name="_ValidationScriptsPartial" />
     <script>
+        $.validator.setDefaults({
+            normalizer: function (value) {
+                if ($(this).data('mask')) return value.replace(/\D/g, '');
+                return value;
+            }
+        });
         /* ─── Input masks ─────────────────────────────────────────── */
         function applyPhoneMask(el) {
             const raw = el.value.replace(/\D/g, '');

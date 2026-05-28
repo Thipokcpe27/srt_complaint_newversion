@@ -481,7 +481,31 @@
     @* ══ COR report ══ *@
     @if (Model.CorruptionReport is { } cor)
     {
-        <div class="card overflow-hidden mb-5 border-amber-100 animate-fade-in">
+        @{
+            int corStep = cor.Status switch
+            {
+                "Pending"     => 1,
+                "InProgress"  => 2,
+                "UnderReview" => 3,
+                "Closed" or "Rejected" => 4,
+                _ => 1
+            };
+            bool corRejected = cor.Status == "Rejected";
+            var corSteps = new[] { "รับเรื่อง", "กำลังสืบสวน", "พิจารณาผล", "เสร็จสิ้น" };
+
+            string corStatusDesc = cor.Status switch
+            {
+                "Pending"     => "ระบบรับเรื่องของท่านแล้ว รอมอบหมายให้ทีมสืบสวน",
+                "InProgress"  => "ทีมสืบสวนกำลังรวบรวมข้อมูลและตรวจสอบหลักฐาน",
+                "UnderReview" => "ผู้มีอำนาจกำลังพิจารณาผลการสืบสวน เพื่อออกคำสั่งหรือส่งดำเนินคดี",
+                "Closed"      => "การสืบสวนเสร็จสิ้น เรื่องได้รับการดำเนินการครบถ้วนแล้ว",
+                "Rejected"    => "เรื่องที่แจ้งไม่เข้าข่ายหรือไม่มีข้อมูลเพียงพอที่จะดำเนินการต่อ",
+                _             => ""
+            };
+        }
+
+        <!-- Card header -->
+        <div class="card overflow-hidden mb-4 border-amber-100 animate-fade-in">
             <div class="bg-amber-600 px-6 py-5 flex items-center justify-between">
                 <div>
                     <p class="text-amber-200 text-[11px] font-semibold uppercase tracking-wider mb-1">เรื่องแจ้งทุจริต</p>
@@ -507,55 +531,194 @@
                               cor.SubjectType == "Contractor" ? "คู่สัญญา" : "ไม่ระบุ")
                         </p>
                     </div>
-                </div>
-                @if (cor.SlaDeadline.HasValue)
-                {
-                    <hr class="border-gray-100" />
-                    <div class="flex items-center gap-4">
-                        <div class="flex-1">
-                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">กำหนดดำเนินการ</p>
+                    @if (cor.AssignedAt.HasValue)
+                    {
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">รับเรื่องเมื่อ</p>
                             <p class="text-sm font-semibold text-gray-800">
-                                @cor.SlaDeadline.Value.ToLocalTime().ToString("d MMM yyyy HH:mm", thCulture)
+                                @cor.AssignedAt.Value.ToLocalTime().ToString("d MMM yyyy HH:mm", thCulture)
                             </p>
                         </div>
-                        @if (cor.SlaBreached) { <span class="badge-critical">เกินกำหนด</span> }
-                        else if (cor.Status is "Closed" or "Rejected") { <span class="badge-resolved">ดำเนินการแล้ว</span> }
+                    }
+                    @if (cor.ClosedAt.HasValue)
+                    {
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">ปิดเรื่องเมื่อ</p>
+                            <p class="text-sm font-semibold text-gray-800">
+                                @cor.ClosedAt.Value.ToLocalTime().ToString("d MMM yyyy HH:mm", thCulture)
+                            </p>
+                        </div>
+                    }
+                    @if (cor.SlaDeadline.HasValue)
+                    {
+                        <div>
+                            <p class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">กำหนดดำเนินการ</p>
+                            <p class="text-sm font-semibold @(cor.SlaBreached ? "text-red-600" : "text-gray-800")">
+                                @cor.SlaDeadline.Value.ToLocalTime().ToString("d MMM yyyy", thCulture)
+                                @if (cor.SlaBreached) { <text> ⚠</text> }
+                            </p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Stepper -->
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm px-5 py-4 mb-4">
+            <div class="flex items-start">
+                @for (int si = 0; si < corSteps.Length; si++)
+                {
+                    bool done   = corStep > si + 1;
+                    bool active = corStep == si + 1;
+                    bool last   = si == corSteps.Length - 1;
+
+                    string circleCls = done
+                        ? "bg-amber-600 text-white"
+                        : active
+                            ? (corRejected ? "bg-red-500 text-white ring-4 ring-red-100" : "bg-amber-600 text-white ring-4 ring-amber-100")
+                            : "bg-gray-100 text-gray-400";
+                    string textCls = active ? (corRejected ? "text-red-600 font-bold" : "text-amber-700 font-bold")
+                                   : done   ? "text-gray-700 font-medium"
+                                            : "text-gray-400";
+                    string lineCls = done ? "bg-amber-500" : "bg-gray-200";
+
+                    <div class="flex flex-col items-center @(last ? "w-auto" : "flex-1")">
+                        <div class="flex items-center w-full">
+                            <div class="w-8 h-8 rounded-full @circleCls flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300">
+                                @if (done)
+                                {
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                    </svg>
+                                }
+                                else if (active && corRejected)
+                                {
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                }
+                                else
+                                {
+                                    <span>@(si + 1)</span>
+                                }
+                            </div>
+                            @if (!last)
+                            {
+                                <div class="flex-1 h-0.5 mx-2 @lineCls transition-all duration-500"></div>
+                            }
+                        </div>
+                        <p class="text-[11px] @textCls mt-1.5 text-center leading-tight">@corSteps[si]</p>
                     </div>
                 }
             </div>
         </div>
 
+        <!-- Timeline -->
+        <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mb-4">
+            <h2 class="text-sm font-bold text-gray-900 mb-5 flex items-center gap-2">
+                <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                ไทม์ไลน์การดำเนินการ
+            </h2>
+            <ol class="space-y-0">
+                @{
+                    var corEvents = new List<(DateTime At, string Icon, string Color, string Label, string? Detail)>
+                    {
+                        (cor.CreatedAt, "created", "bg-emerald-500", "รับแจ้งเรื่องทุจริตเข้าสู่ระบบ", "ข้อมูลของท่านถูกเข้ารหัสและจัดเก็บอย่างปลอดภัย")
+                    };
+                    if (cor.AssignedAt.HasValue)
+                        corEvents.Add((cor.AssignedAt.Value, "status", "bg-blue-500", "มอบหมายให้ทีมสืบสวน", "ทีมสืบสวนเริ่มรวบรวมข้อมูลและตรวจสอบหลักฐาน"));
+                    if (cor.Status == "UnderReview" || cor.Status == "Closed")
+                        corEvents.Add((cor.UpdatedAt, "review", "bg-purple-500", "เข้าสู่ขั้นตอนพิจารณาผล", "ผลการสืบสวนถูกส่งให้ผู้มีอำนาจพิจารณา"));
+                    if (cor.ClosedAt.HasValue)
+                        corEvents.Add((cor.ClosedAt.Value, "closed", "bg-slate-500", "ปิดเรื่อง — ดำเนินการครบถ้วน", null));
+                    else if (cor.Status == "Rejected")
+                        corEvents.Add((cor.UpdatedAt, "rejected", "bg-red-400", "ไม่รับดำเนินการ", null));
+
+                    corEvents = corEvents.OrderBy(e => e.At).ToList();
+                }
+                @for (int ti = 0; ti < corEvents.Count; ti++)
+                {
+                    var (evAt, evIcon, evColor, evLabel, evDetail) = corEvents[ti];
+                    bool evLast = ti == corEvents.Count - 1;
+                    <li class="flex gap-0">
+                        <div class="flex flex-col items-center w-10 shrink-0">
+                            <div class="w-9 h-9 @evColor rounded-full flex items-center justify-center shadow-sm ring-4 ring-white z-10 shrink-0">
+                                @if (evIcon == "created")
+                                {
+                                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                }
+                                else if (evIcon == "closed")
+                                {
+                                    <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                                }
+                                else if (evIcon == "rejected")
+                                {
+                                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+                                }
+                                else
+                                {
+                                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                }
+                            </div>
+                            @if (!evLast)
+                            {
+                                <div class="w-px bg-gray-200 flex-1 mt-1 mb-1" style="min-height:2rem"></div>
+                            }
+                        </div>
+                        <div class="flex-1 pl-3 @(evLast ? "pb-0" : "pb-5") min-w-0">
+                            <div class="flex items-start justify-between gap-2 mb-0.5 pt-1.5">
+                                <p class="text-sm font-semibold text-gray-900 leading-tight">@evLabel</p>
+                                <time class="text-[11px] text-gray-400 font-medium shrink-0 pt-0.5">
+                                    @evAt.ToLocalTime().ToString("d MMM yy · HH:mm", thCulture)
+                                </time>
+                            </div>
+                            @if (!string.IsNullOrEmpty(evDetail))
+                            {
+                                <p class="text-xs text-gray-500 mt-1">@evDetail</p>
+                            }
+                        </div>
+                    </li>
+                }
+            </ol>
+        </div>
+
+        <!-- Status banner -->
         @if (cor.Status is "Closed")
         {
-            <div class="alert-success">
+            <div class="alert-success mb-4">
                 <svg class="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                 </svg>
                 <div>
                     <p class="font-bold">เรื่องได้รับการดำเนินการครบถ้วนแล้ว</p>
-                    <p class="text-xs mt-0.5 opacity-80">ขอบคุณที่แจ้งเบาะแสทุจริต</p>
+                    <p class="text-xs mt-0.5 opacity-80">ขอบคุณที่แจ้งเบาะแสทุจริต รฟท. จะดำเนินการให้ถึงที่สุด</p>
                 </div>
             </div>
         }
         else if (cor.Status == "Rejected")
         {
-            <div class="alert-error">
+            <div class="alert-error mb-4">
                 <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <div>
-                    <p class="font-bold">เรื่องร้องเรียนของท่านไม่ได้รับการพิจารณา</p>
-                    <p class="text-xs mt-0.5 opacity-80">หากต้องการข้อมูลเพิ่มเติม กรุณาติดต่อ ☎ 1690</p>
+                    <p class="font-bold">ไม่รับดำเนินการ</p>
+                    <p class="text-xs mt-0.5 opacity-80">@corStatusDesc หากต้องการข้อมูลเพิ่มเติม กรุณาติดต่อ ☎ 1690</p>
                 </div>
             </div>
         }
         else
         {
-            <div class="alert-warning">
+            <div class="alert-warning mb-4">
                 <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
-                <p>ทีมสืบสวนกำลังดำเนินการ ข้อมูลผู้แจ้งถูกเก็บเป็นความลับสนิท</p>
+                <div>
+                    <p class="font-bold">@TrackModel.StatusLabel(cor.Status)</p>
+                    <p class="text-xs mt-0.5 opacity-80">@corStatusDesc</p>
+                </div>
             </div>
         }
     }

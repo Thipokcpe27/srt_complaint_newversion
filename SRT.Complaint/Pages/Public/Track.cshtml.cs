@@ -32,7 +32,7 @@ public class TrackModel(
         {
             Searched = true;
             var refUpper = Ref.Trim().ToUpper();
-            if (refUpper.StartsWith("COR-"))
+            if (refUpper.StartsWith("SRT-CORUPT-"))
             {
                 CorruptionReport = await corruptionService.GetByReferenceAsync(refUpper);
             }

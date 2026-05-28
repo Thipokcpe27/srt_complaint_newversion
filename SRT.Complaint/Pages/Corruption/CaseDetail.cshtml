@@ -410,6 +410,24 @@
             </div>
         }
 
+        <!-- Send Back to Investigation -->
+        @if (r.Status == "UnderReview")
+        {
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+                <h3 class="text-sm font-semibold text-gray-900 mb-2">ส่งกลับสืบสวน</h3>
+                <p class="text-xs text-gray-500 mb-3">กรณีข้อมูลยังไม่เพียงพอ ส่งกลับให้สืบสวนเพิ่มเติม</p>
+                <form method="post" asp-page-handler="SendBack" asp-route-id="@r.Id">
+                    @Html.AntiForgeryToken()
+                    <button type="submit"
+                            onclick="return confirm('ส่งกลับสืบสวนเพิ่มเติม?')"
+                            class="w-full border border-gray-300 text-gray-700 text-sm font-medium py-2 rounded-xl
+                                   hover:bg-gray-50 transition">
+                        ↩ ส่งกลับสืบสวน
+                    </button>
+                </form>
+            </div>
+        }
+
         <!-- Close Case -->
         @if (r.Status == "UnderReview")
         {

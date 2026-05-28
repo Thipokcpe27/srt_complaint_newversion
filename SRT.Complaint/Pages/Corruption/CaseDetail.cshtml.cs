@@ -73,6 +73,14 @@ public class CaseDetailModel(
         return RedirectToPage(new { id });
     }
 
+    // ─── Send Back to Investigation ───
+    public async Task<IActionResult> OnPostSendBackAsync(int id)
+    {
+        await corruptionService.UpdateStatusAsync(id, "InProgress", GetStaffId(), "ส่งกลับสืบสวนเพิ่มเติม");
+        TempData["Success"] = "ส่งกลับสืบสวนเรียบร้อยแล้ว";
+        return RedirectToPage(new { id });
+    }
+
     // ─── Close ───
     public async Task<IActionResult> OnPostCloseAsync(int id)
     {
@@ -140,10 +148,10 @@ public class CaseDetailModel(
 
         AllowedNextStatuses = report.Status switch
         {
-            "Pending"     => ["InProgress"],
-            "InProgress"  => ["UnderReview", "Rejected"],
-            "UnderReview" => ["InProgress", "Rejected"],
-            _             => []
+            "Pending"    => ["InProgress"],
+            "InProgress" => ["UnderReview", "Rejected"],
+            "UnderReview" => ["Rejected"],
+            _            => []
         };
 
         // Collect all staff IDs referenced in this report (across contexts)
