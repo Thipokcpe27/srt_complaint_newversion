@@ -11,7 +11,10 @@ using SRT.Complaint.Services;
 namespace SRT.Complaint.Pages.Staff;
 
 [Authorize(Policy = "StaffOnly")]
-public class QueueModel(IComplaintService complaintService, AppDbContext db) : PageModel
+public class QueueModel(
+    IComplaintService complaintService,
+    IExternalSyncService externalSyncService,
+    AppDbContext db) : PageModel
 {
     [BindProperty(SupportsGet = true)] public string? Search { get; set; }
     [BindProperty(SupportsGet = true)] public string? Status { get; set; }
@@ -26,6 +29,7 @@ public class QueueModel(IComplaintService complaintService, AppDbContext db) : P
     public int PageStart => TotalCount == 0 ? 0 : (CurrentPage - 1) * PageSize + 1;
     public int PageEnd => Math.Min(CurrentPage * PageSize, TotalCount);
     public IEnumerable<SelectListItem> CategoryOptions { get; private set; } = [];
+    public IReadOnlyList<IExternalSystemAdapter> ExternalSystems { get; private set; } = [];
 
     public async Task OnGetAsync()
     {
@@ -67,6 +71,18 @@ public class QueueModel(IComplaintService complaintService, AppDbContext db) : P
             .OrderBy(c => c.SortOrder)
             .Select(c => new SelectListItem(c.Name, c.Id.ToString()))
             .ToListAsync();
+
+        ExternalSystems = externalSyncService.GetAvailableSystems();
+    }
+
+    public async Task<IActionResult> OnPostSyncAsync(string systemKey)
+    {
+        var staffId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var log = await externalSyncService.SyncAsync(systemKey, staffId);
+        TempData["SyncResult"] = log.SyncStatus == "Success"
+            ? $"success|{log.NewCount}|{log.DuplicateCount}|{log.FetchedCount}"
+            : $"error|{log.ErrorMessage}";
+        return RedirectToPage(new { Search, Status, Priority, CategoryId, CurrentPage });
     }
 
     public async Task<IActionResult> OnPostClaimAsync(int id)

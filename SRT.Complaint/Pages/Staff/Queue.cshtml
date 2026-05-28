@@ -2,6 +2,41 @@
 @model SRT.Complaint.Pages.Staff.QueueModel
 @{
     ViewData["Title"] = "คิวเรื่องร้องเรียน";
+    var syncResult = TempData["SyncResult"] as string;
+    string[]? sr = syncResult?.Split('|');
+}
+
+<!-- Sync result banner -->
+@if (sr != null)
+{
+    if (sr[0] == "success")
+    {
+        <div class="mb-4 bg-green-50 border border-green-200 rounded-xl p-4 flex items-start gap-3 text-sm">
+            <svg class="w-5 h-5 text-green-600 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <div>
+                <p class="font-semibold text-green-800">ดึงข้อมูลสำเร็จ</p>
+                <p class="text-green-700 mt-0.5">
+                    พบทั้งหมด <strong>@sr[3]</strong> รายการ —
+                    นำเข้าใหม่ <strong class="text-green-800">@sr[1]</strong> รายการ,
+                    ซ้ำ <strong>@sr[2]</strong> รายการ
+                </p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3 text-sm">
+            <svg class="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+            </svg>
+            <div>
+                <p class="font-semibold text-red-700">ดึงข้อมูลไม่สำเร็จ</p>
+                <p class="text-red-600 mt-0.5">@(sr.Length > 1 ? sr[1] : "เกิดข้อผิดพลาด")</p>
+            </div>
+        </div>
+    }
 }
 
 <!-- Page header -->
@@ -12,12 +47,102 @@
             ทั้งหมด <strong class="text-gray-900">@Model.TotalCount</strong> รายการ
         </p>
     </div>
-    <a asp-page="/Staff/CreateComplaint" class="btn-primary">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-        </svg>
-        สร้างเรื่องใหม่
-    </a>
+    <div class="flex items-center gap-2">
+        <button type="button"
+                onclick="document.getElementById('pullModal').classList.remove('hidden')"
+                class="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition shadow-sm">
+            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            ดึงคำร้อง
+        </button>
+        <a asp-page="/Staff/CreateComplaint" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            สร้างเรื่องใหม่
+        </a>
+    </div>
+</div>
+
+<!-- ══ Pull Modal ══ -->
+<div id="pullModal"
+     class="hidden fixed inset-0 z-50 flex items-center justify-center p-4"
+     role="dialog" aria-modal="true" aria-labelledby="pullModalTitle">
+    <div class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+         onclick="document.getElementById('pullModal').classList.add('hidden')"></div>
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md">
+
+        <!-- Header -->
+        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div>
+                <h2 id="pullModalTitle" class="text-base font-bold text-gray-900">ดึงคำร้องจากระบบภายนอก</h2>
+                <p class="text-xs text-gray-500 mt-0.5">เลือกหน่วยงานที่ต้องการนำเข้าข้อมูล</p>
+            </div>
+            <button type="button"
+                    onclick="document.getElementById('pullModal').classList.add('hidden')"
+                    aria-label="ปิด"
+                    class="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- System Cards -->
+        <div class="p-5 space-y-3">
+            @foreach (var sys in Model.ExternalSystems)
+            {
+                <div class="border rounded-xl p-4 @(sys.IsConfigured ? "border-gray-200 hover:border-blue-200 hover:bg-blue-50/30 transition" : "border-dashed border-gray-200 bg-gray-50/60 opacity-60")">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <span class="font-semibold text-gray-900 text-sm">@sys.DisplayName</span>
+                                @if (sys.IsConfigured)
+                                {
+                                    <span class="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-green-100 text-green-700">พร้อมใช้งาน</span>
+                                }
+                                else
+                                {
+                                    <span class="px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">ยังไม่ได้ตั้งค่า</span>
+                                }
+                            </div>
+                            <p class="text-xs text-gray-500 truncate">@sys.Description</p>
+                        </div>
+                        @if (sys.IsConfigured)
+                        {
+                            <form method="post" asp-page-handler="Sync" class="shrink-0">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="systemKey" value="@sys.SystemKey"/>
+                                <button type="submit"
+                                        onclick="this.disabled=true;this.textContent='กำลังดึง...';this.form.submit()"
+                                        class="flex items-center gap-1.5 bg-srt-navy text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold hover:bg-srt-navy-dark transition">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                              d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                    </svg>
+                                    ดึงข้อมูล
+                                </button>
+                            </form>
+                        }
+                        else
+                        {
+                            <span class="shrink-0 text-xs text-gray-400 px-3 py-1.5 border border-dashed border-gray-300 rounded-lg">
+                                ยังไม่พร้อม
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="px-5 pb-5">
+            <p class="text-[11px] text-gray-400 text-center">
+                ดึงเฉพาะรายการใหม่ที่ยังไม่มีในระบบ — รายการซ้ำจะถูกข้ามอัตโนมัติ
+            </p>
+        </div>
+    </div>
 </div>
 
 <!-- Filter Bar -->
@@ -260,4 +385,12 @@
             }
         </div>
     </div>
+}
+
+@section Scripts {
+    <script>
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') document.getElementById('pullModal').classList.add('hidden');
+        });
+    </script>
 }

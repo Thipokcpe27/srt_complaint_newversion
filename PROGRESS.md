@@ -146,6 +146,29 @@
 - [x] Pages/Shared/_StaffLayout.cshtml — เพิ่ม "หลักเกณฑ์ร้องเรียน" ใน Admin sidebar
 - [x] Program.cs — AddScoped<ITermsService, TermsService>
 
+### Phase 18: External Sync — Traffy Fondue Integration
+- [x] Bug: Track.cshtml — RZ1010 `@{}` inside `@if{}` Razor syntax error → ลบ wrapper `@{}` ออก ตัวแปร C# อยู่ตรง ๆ ใน `@if`
+- [x] Bug: ThaiIdAttribute — ลบ mod-11 checksum (บัตรเก่าบางใบผ่านไม่ได้) เหลือแค่ตรวจ 13 หลัก
+- [x] Bug: jQuery Validate phone/ID card error on blur — เพิ่ม `normalizer` strip non-digits ก่อน validate (Submit.cshtml + SubmitCorruption.cshtml)
+- [x] Bug: Track page corruption — prefix check ผิด (`COR-` → `SRT-CORUPT-`) แก้ใน Track.cshtml.cs
+- [x] Bug: Corruption CaseDetail status loop — `UnderReview` ไม่มี `Closed` → แก้ AllowedNextStatuses + เพิ่มปุ่ม "ส่งกลับสืบสวน" + `OnPostSendBackAsync`
+- [x] Feature: Track.cshtml corruption section — เพิ่ม stepper 4 ขั้น + timeline + status descriptions (ละเอียดขึ้น)
+- [x] Feature: Apply migration AddCorruptionSeq (CorruptionDbContext) — `dotnet ef database update --no-build`
+- [x] Feature: TraffyFonduAdapter.cs — implement เต็มรูปแบบตาม Traffy Exchange API Spec:
+  - JWT auth `POST /get-auth/v1` + token cache in-memory (SemaphoreSlim thread-safe, refresh 60s ก่อนหมด)
+  - FetchNewAsync `GET /get-issues/v1?org_id={orgId}&duration=week`
+  - PushStatusAsync `PATCH /update-issue/v1` + SRT status → Traffy status_id mapping
+  - Phone normalise (strip non-digits, ตรวจ 9–10 หลัก)
+- [x] Feature: TraffyWebhookController.cs — real-time push จาก Traffy
+  - `POST /api/traffy-webhook/new-issue` → import เรื่องใหม่เข้า DB ทันที (dedup check ก่อน)
+  - `PATCH /api/traffy-webhook/update-status` → sync สถานะกลับเข้า complaint (AuthorId null = system)
+  - Webhook secret validation via `X-Traffy-Secret` header หรือ query `?secret=`
+- [x] Config: appsettings.json เพิ่ม `TraffyFondue` block (ApiUrl, Username, Password, OrgId, WebhookSecret)
+- [x] Feature: Staff/Queue.cshtml — ย้ายปุ่ม "ดึงคำร้อง" + modal หน่วยงาน จาก Admin → Staff Queue
+  - เจ้าหน้าที่กดดึงได้เองจากหน้าคิวโดยตรง
+  - `OnPostSyncAsync` ใน QueueModel — บันทึก log + result banner
+  - Admin/ExternalSync ยังอยู่ไว้ดู history log
+
 ## Notes / Issues พบระหว่างทำ
 
 - ใช้ `@page "{id:int}"` สำหรับ CaseDetail ให้ URL เป็น `/Staff/CaseDetail/123`
