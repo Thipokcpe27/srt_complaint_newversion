@@ -649,6 +649,322 @@ icacls "C:\SRT_Uploads\Complaints"
 
 ---
 
+## การ Redirect URL เดิม (`/complain/`) ไปยังระบบใหม่
+
+ระบบเดิมใช้ URL: `https://www.railway.co.th/complain/call.asp` (Classic ASP)
+ระบบใหม่ใช้ URL: `https://www.railway.co.th/complaint/` (ASP.NET Core)
+
+มี 3 วิธีในการจัดการ เลือกตามสถานการณ์:
+
+---
+
+### วิธีที่ 1 — Deploy ระบบใหม่ที่ path `/complain/` เลย (แนะนำที่สุด)
+
+ใช้เมื่อ: ระบบเดิมไม่มีคนใช้งานแล้ว ต้องการให้ URL เดิมยังใช้ได้โดยไม่ต้องแก้อะไรเพิ่ม
+
+**โครงสร้างโฟลเดอร์ที่ต้องการ:**
+
+```
+C:\inetpub\wwwroot\
+└── complain\                   ← โฟลเดอร์เดิมของระบบ Classic ASP
+    ├── SRT.Complaint.dll       ← ไฟล์จาก dotnet publish (วางแทนของเดิม)
+    ├── SRT.Complaint.runtimeconfig.json
+    ├── web.config              ← สร้างอัตโนมัติโดย dotnet publish
+    ├── appsettings.json
+    ├── wwwroot\
+    │   ├── css\
+    │   ├── js\
+    │   └── images\
+    └── [ไฟล์อื่น ๆ จาก publish]
+```
+
+**ขั้นตอน:**
+
+1. **Publish แอปบนเครื่อง Dev ก่อน**
+   ```powershell
+   dotnet publish SRT.Complaint/SRT.Complaint.csproj -c Release -o C:\publish
+   ```
+   ผลลัพธ์จะอยู่ที่ `C:\publish\` ประกอบด้วยไฟล์ทั้งหมดที่ต้องการ
+
+2. **Copy ไฟล์ publish ไปยัง Server** (ผ่าน RDP File Copy, FTP, หรือ Network Share)
+   ```
+   จาก: C:\publish\          (เครื่อง Dev)
+   ไปที่: C:\inetpub\wwwroot\complain_new\    (Server — วางไว้ก่อน ยังไม่ใช่ชื่อจริง)
+   ```
+
+3. **สำรองโฟลเดอร์ระบบเดิม**
+   ```powershell
+   # รันบน Server
+   Copy-Item "C:\inetpub\wwwroot\complain" "C:\backup\complain_old_$(Get-Date -Format 'yyyyMMdd')" -Recurse
+   ```
+
+4. **ลบไฟล์ระบบเดิมออก**
+   ```powershell
+   # รันบน Server
+   Remove-Item "C:\inetpub\wwwroot\complain\*" -Recurse -Force
+   ```
+
+5. **ย้ายไฟล์ใหม่เข้าที่**
+   ```powershell
+   # รันบน Server
+   Copy-Item "C:\inetpub\wwwroot\complain_new\*" "C:\inetpub\wwwroot\complain\" -Recurse -Force
+   Remove-Item "C:\inetpub\wwwroot\complain_new" -Recurse -Force
+   ```
+
+   โครงสร้างสุดท้ายที่ `C:\inetpub\wwwroot\complain\`:
+   ```
+   complain\
+   ├── SRT.Complaint.dll
+   ├── web.config
+   ├── appsettings.json
+   ├── wwwroot\
+   └── [ไฟล์อื่น ๆ]
+   ```
+
+6. **เปลี่ยน Application Pool ใน IIS Manager**
+   - IIS Manager → **Sites** → `Default Web Site` → `complain`
+   - คลิกขวา → **Manage Application** → **Advanced Settings**
+   - เปลี่ยน **Application Pool** จาก Pool เดิม (Classic ASP) → `SRTComplaint` (No Managed Code)
+
+7. **กำหนดสิทธิ์โฟลเดอร์**
+   ```powershell
+   icacls "C:\inetpub\wwwroot\complain" /grant "IIS AppPool\SRTComplaint:(OI)(CI)RX" /T
+   New-Item -ItemType Directory -Force -Path "C:\SRT_Uploads\Complaints"
+   icacls "C:\SRT_Uploads\Complaints" /grant "IIS AppPool\SRTComplaint:(OI)(CI)M" /T
+   ```
+
+8. **กำหนด Environment Variables** ใน IIS Manager
+   - IIS Manager → `complain` → **Configuration Editor**
+   - Section: `system.webServer/aspNetCore` → `environmentVariables`
+   - เพิ่มตัวแปรทั้งหมดตามตารางในขั้นที่ 7 ของหัวข้อ Deploy
+
+9. **Restart Application Pool**
+   ```powershell
+   Restart-WebAppPool -Name "SRTComplaint"
+   ```
+
+10. **ทดสอบ**
+    - เปิด `https://www.railway.co.th/complain/` → ควรเข้าระบบใหม่ได้เลย
+    - เปิด `https://www.railway.co.th/complain/Staff/Login` → ควรเห็นหน้า Login
+
+---
+
+### วิธีที่ 2 — IIS URL Rewrite Rule (ไม่แตะโค้ดเดิมเลย)
+
+ใช้เมื่อ: ระบบเดิมยังต้องเปิดให้บริการอยู่ หรือต้องการ deploy ระบบใหม่ที่ `/complaint/` แล้วให้ URL เดิม redirect มา
+
+**โครงสร้างโฟลเดอร์:**
+
+```
+C:\inetpub\wwwroot\
+├── complain\                   ← ระบบเดิม (Classic ASP) ยังคงอยู่ครบ
+│   ├── call.asp
+│   └── [ไฟล์เดิมทั้งหมด]
+├── complaint\                  ← ระบบใหม่ (ASP.NET Core) วางตรงนี้
+│   ├── SRT.Complaint.dll
+│   ├── web.config
+│   ├── appsettings.json
+│   └── wwwroot\
+└── web.config                  ← web.config ของ Site หลัก (ใส่ Rewrite Rule ที่นี่)
+```
+
+> **หมายเหตุ:** `web.config` ที่ใส่ Rewrite Rule ต้องอยู่ระดับ **root ของ Site** ไม่ใช่ใน `/complaint/` หรือ `/complain/`
+
+**ขั้นตอน:**
+
+**ส่วนที่ 1: วาง publish folder ระบบใหม่**
+
+1. **Publish แอปบนเครื่อง Dev**
+   ```powershell
+   dotnet publish SRT.Complaint/SRT.Complaint.csproj -c Release -o C:\publish
+   ```
+
+2. **สร้างโฟลเดอร์ปลายทางบน Server**
+   ```powershell
+   New-Item -ItemType Directory -Force -Path "C:\inetpub\wwwroot\complaint"
+   ```
+
+3. **Copy ไฟล์ publish ไปที่ `complaint\`**
+   ```powershell
+   Copy-Item "C:\publish\*" "C:\inetpub\wwwroot\complaint\" -Recurse -Force
+   ```
+
+4. **ใน IIS Manager** → `Default Web Site` → คลิกขวา → **Add Application**
+   - Alias: `complaint`
+   - Application Pool: `SRTComplaint` (No Managed Code)
+   - Physical path: `C:\inetpub\wwwroot\complaint`
+
+5. **กำหนดสิทธิ์โฟลเดอร์**
+   ```powershell
+   icacls "C:\inetpub\wwwroot\complaint" /grant "IIS AppPool\SRTComplaint:(OI)(CI)RX" /T
+   New-Item -ItemType Directory -Force -Path "C:\SRT_Uploads\Complaints"
+   icacls "C:\SRT_Uploads\Complaints" /grant "IIS AppPool\SRTComplaint:(OI)(CI)M" /T
+   ```
+
+6. **กำหนด Environment Variables** ใน IIS Manager → Application `complaint` → Configuration Editor
+
+**ส่วนที่ 2: ตั้งค่า URL Rewrite**
+
+> ต้องติดตั้ง **IIS URL Rewrite Module** ก่อน  
+> ดาวน์โหลด: https://www.iis.net/downloads/microsoft/url-rewrite  
+> ตรวจสอบ: IIS Manager → คลิก Server (ไม่ใช่ Site) → ต้องมี icon **URL Rewrite** ในหน้า Features
+
+**วิธีที่ 2A: ผ่าน IIS Manager**
+
+1. IIS Manager → คลิก **Default Web Site** (Site หลัก)
+2. ดับเบิลคลิก **URL Rewrite**
+3. คลิก **Add Rule(s)...** → เลือก **Blank rule** → **OK**
+4. กำหนดค่า:
+
+   | ฟิลด์ | ค่า |
+   |---|---|
+   | Name | `Redirect complain to complaint` |
+   | Requested URL | `Matches the Pattern` |
+   | Using | `Regular Expressions` |
+   | Pattern | `^complain/(.*)` |
+   | Ignore case | ✅ เปิด |
+   | Action type | `Redirect` |
+   | Redirect URL | `/complaint/{R:1}` |
+   | Append query string | ✅ เปิด |
+   | Redirect type | `Permanent (301)` |
+
+5. คลิก **Apply** → เพิ่ม Rule ที่สองสำหรับ root path:
+   - Pattern: `^complain$`
+   - Redirect URL: `/complaint/`
+   - Redirect type: `Permanent (301)`
+
+**วิธีที่ 2B: แก้ไข `web.config` ของ Site หลักโดยตรง**
+
+เปิดไฟล์ `C:\inetpub\wwwroot\web.config` (สร้างใหม่ถ้าไม่มี) แล้วใส่:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <system.webServer>
+    <rewrite>
+      <rules>
+        <rule name="Redirect complain to complaint" stopProcessing="true">
+          <match url="^complain/(.*)" />
+          <action type="Redirect"
+                  url="/complaint/{R:1}"
+                  appendQueryString="true"
+                  redirectType="Permanent" />
+        </rule>
+        <rule name="Redirect complain root" stopProcessing="true">
+          <match url="^complain$" />
+          <action type="Redirect"
+                  url="/complaint/"
+                  redirectType="Permanent" />
+        </rule>
+      </rules>
+    </rewrite>
+  </system.webServer>
+</configuration>
+```
+
+**ทดสอบ:**
+```powershell
+# ทดสอบ redirect (ควรได้ 301 + Location header)
+Invoke-WebRequest -Uri "https://www.railway.co.th/complain/" `
+  -MaximumRedirection 0 -ErrorAction SilentlyContinue |
+  Select-Object StatusCode, @{n="Location";e={$_.Headers.Location}}
+```
+
+---
+
+### วิธีที่ 3 — ไฟล์ redirect.asp ในโฟลเดอร์เดิม
+
+ใช้เมื่อ: ไม่มีสิทธิ์ติดตั้ง URL Rewrite Module และยังมี Classic ASP engine บน Server
+
+**โครงสร้างโฟลเดอร์:**
+
+```
+C:\inetpub\wwwroot\
+├── complain\                   ← โฟลเดอร์ระบบเดิม (แก้ไขบางไฟล์)
+│   ├── default.asp             ← สร้างใหม่: redirect ทุก request ไป /complaint/
+│   ├── call.asp                ← แก้ไข: เปลี่ยนเป็น redirect แทน
+│   └── [ไฟล์เดิมอื่น ๆ]
+└── complaint\                  ← ระบบใหม่ (ASP.NET Core) วางตรงนี้
+    ├── SRT.Complaint.dll
+    ├── web.config
+    ├── appsettings.json
+    └── wwwroot\
+```
+
+**ขั้นตอน:**
+
+**ส่วนที่ 1: วาง publish folder ระบบใหม่ (เหมือนวิธีที่ 2)**
+
+1. **Publish แอปบนเครื่อง Dev**
+   ```powershell
+   dotnet publish SRT.Complaint/SRT.Complaint.csproj -c Release -o C:\publish
+   ```
+
+2. **สร้างโฟลเดอร์และ copy ไฟล์บน Server**
+   ```powershell
+   New-Item -ItemType Directory -Force -Path "C:\inetpub\wwwroot\complaint"
+   Copy-Item "C:\publish\*" "C:\inetpub\wwwroot\complaint\" -Recurse -Force
+   ```
+
+3. **ใน IIS Manager** → `Default Web Site` → **Add Application**
+   - Alias: `complaint`
+   - Application Pool: `SRTComplaint` (No Managed Code)
+   - Physical path: `C:\inetpub\wwwroot\complaint`
+
+4. **กำหนดสิทธิ์**
+   ```powershell
+   icacls "C:\inetpub\wwwroot\complaint" /grant "IIS AppPool\SRTComplaint:(OI)(CI)RX" /T
+   New-Item -ItemType Directory -Force -Path "C:\SRT_Uploads\Complaints"
+   icacls "C:\SRT_Uploads\Complaints" /grant "IIS AppPool\SRTComplaint:(OI)(CI)M" /T
+   ```
+
+**ส่วนที่ 2: เพิ่มไฟล์ redirect ในโฟลเดอร์ `/complain/`**
+
+5. **สำรองไฟล์เดิม**
+   ```powershell
+   $date = Get-Date -Format 'yyyyMMdd'
+   Copy-Item "C:\inetpub\wwwroot\complain" "C:\backup\complain_$date" -Recurse
+   ```
+
+6. **สร้างไฟล์ `default.asp`** ที่ `C:\inetpub\wwwroot\complain\default.asp`:
+   ```asp
+   <%
+   Response.Status = "301 Moved Permanently"
+   Response.AddHeader "Location", "https://www.railway.co.th/complaint/"
+   Response.End
+   %>
+   ```
+
+7. **แก้ไขไฟล์ `call.asp`** ที่ `C:\inetpub\wwwroot\complain\call.asp` ให้เหลือแค่:
+   ```asp
+   <%
+   Response.Status = "301 Moved Permanently"
+   Response.AddHeader "Location", "https://www.railway.co.th/complaint/"
+   Response.End
+   %>
+   ```
+
+8. **ตั้ง Default Document** ใน IIS:
+   - IIS Manager → `complain` → ดับเบิลคลิก **Default Document**
+   - คลิก **Add...** → พิมพ์ `default.asp`
+   - ใช้ลูกศรขึ้นเพื่อย้าย `default.asp` ขึ้นบนสุด
+
+9. **ทดสอบ:**
+   - เปิด `https://www.railway.co.th/complain/` → ควร redirect ไป `/complaint/`
+   - เปิด `https://www.railway.co.th/complain/call.asp` → ควร redirect ไป `/complaint/`
+
+---
+
+### สรุปการเลือกวิธี
+
+| สถานการณ์ | วิธีที่แนะนำ | โฟลเดอร์ระบบใหม่ |
+|---|---|---|
+| ระบบเดิมหยุดใช้แล้ว URL เดิมยังต้องใช้ได้ | **วิธีที่ 1** | `C:\inetpub\wwwroot\complain\` |
+| ระบบใหม่อยู่ที่ `/complaint/` มี URL Rewrite | **วิธีที่ 2** | `C:\inetpub\wwwroot\complaint\` |
+| ไม่มี URL Rewrite Module มี Classic ASP | **วิธีที่ 3** | `C:\inetpub\wwwroot\complaint\` |
+
+---
+
 ## การ Migrate ฐานข้อมูล
 
 ### สร้าง Migration ใหม่

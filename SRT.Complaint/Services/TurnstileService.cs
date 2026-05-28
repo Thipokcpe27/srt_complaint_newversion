@@ -12,9 +12,6 @@ public class TurnstileService(
 
     public async Task<bool> VerifyAsync(string token, string? remoteIp = null)
     {
-        if (string.IsNullOrWhiteSpace(token))
-            return false;
-
         var secretKey = config["Turnstile:SecretKey"] ?? "";
 
         // Dev mode: no key configured → skip verification
@@ -23,6 +20,9 @@ public class TurnstileService(
             logger.LogWarning("Turnstile SecretKey not configured — skipping verification (dev mode)");
             return true;
         }
+
+        if (string.IsNullOrWhiteSpace(token))
+            return false;
 
         try
         {

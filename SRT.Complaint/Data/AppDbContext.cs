@@ -241,6 +241,59 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             new NotificationTemplate { Id = 8, EventKey = "DecryptionRequested", LabelTh = "ขอดูข้อมูลผู้แจ้งทุจริต", EmailSubject = "[รฟท.] แจ้งเตือน: มีการขอดูข้อมูลผู้แจ้ง {ReferenceNumber}", SmsBody = null, IsSmsEnabled = false }
         );
 
+        modelBuilder.Entity<ComplaintSubCategory>().HasData(
+            // 1: ความตรงต่อเวลา
+            new ComplaintSubCategory { Id =  1, CategoryId = 1, Name = "รถออกล่าช้า",                              IsActive = true, SortOrder = 1 },
+            new ComplaintSubCategory { Id =  2, CategoryId = 1, Name = "รถมาถึงล่าช้า",                           IsActive = true, SortOrder = 2 },
+            new ComplaintSubCategory { Id =  3, CategoryId = 1, Name = "ยกเลิกขบวนโดยไม่แจ้งล่วงหน้า",           IsActive = true, SortOrder = 3 },
+            new ComplaintSubCategory { Id =  4, CategoryId = 1, Name = "หยุดกลางทางนานผิดปกติ",                  IsActive = true, SortOrder = 4 },
+            new ComplaintSubCategory { Id =  5, CategoryId = 1, Name = "เวลาจอดสถานีไม่ตรงตารางเวลา",            IsActive = true, SortOrder = 5 },
+            // 2: บริการบนขบวนรถ
+            new ComplaintSubCategory { Id =  6, CategoryId = 2, Name = "ที่นั่ง / เตียงชำรุด",                   IsActive = true, SortOrder = 1 },
+            new ComplaintSubCategory { Id =  7, CategoryId = 2, Name = "แอร์ / พัดลมไม่ทำงาน",                   IsActive = true, SortOrder = 2 },
+            new ComplaintSubCategory { Id =  8, CategoryId = 2, Name = "ห้องน้ำบนขบวนชำรุด / สกปรก",             IsActive = true, SortOrder = 3 },
+            new ComplaintSubCategory { Id =  9, CategoryId = 2, Name = "บริการอาหารและเครื่องดื่ม",               IsActive = true, SortOrder = 4 },
+            new ComplaintSubCategory { Id = 10, CategoryId = 2, Name = "เต้ารับไฟฟ้าชำรุด",                       IsActive = true, SortOrder = 5 },
+            new ComplaintSubCategory { Id = 11, CategoryId = 2, Name = "Wi-Fi / ระบบบันเทิงขัดข้อง",              IsActive = true, SortOrder = 6 },
+            // 3: พนักงาน / มารยาท
+            new ComplaintSubCategory { Id = 12, CategoryId = 3, Name = "พูดจาไม่สุภาพ / ไม่ให้เกียรติ",          IsActive = true, SortOrder = 1 },
+            new ComplaintSubCategory { Id = 13, CategoryId = 3, Name = "บริการล่าช้า / ไม่ใส่ใจ",                IsActive = true, SortOrder = 2 },
+            new ComplaintSubCategory { Id = 14, CategoryId = 3, Name = "ให้ข้อมูลผิด / ไม่ถูกต้อง",              IsActive = true, SortOrder = 3 },
+            new ComplaintSubCategory { Id = 15, CategoryId = 3, Name = "พฤติกรรมไม่เหมาะสม",                     IsActive = true, SortOrder = 4 },
+            new ComplaintSubCategory { Id = 16, CategoryId = 3, Name = "เลือกปฏิบัติ",                            IsActive = true, SortOrder = 5 },
+            // 4: สิ่งอำนวยความสะดวก
+            new ComplaintSubCategory { Id = 17, CategoryId = 4, Name = "ลิฟต์ / บันไดเลื่อนขัดข้อง",             IsActive = true, SortOrder = 1 },
+            new ComplaintSubCategory { Id = 18, CategoryId = 4, Name = "ที่นั่งรอในสถานีชำรุด",                   IsActive = true, SortOrder = 2 },
+            new ComplaintSubCategory { Id = 19, CategoryId = 4, Name = "สิ่งอำนวยความสะดวกสำหรับผู้พิการ",        IsActive = true, SortOrder = 3 },
+            new ComplaintSubCategory { Id = 20, CategoryId = 4, Name = "ป้ายบอกทาง / ข้อมูลไม่ชัดเจน",           IsActive = true, SortOrder = 4 },
+            new ComplaintSubCategory { Id = 21, CategoryId = 4, Name = "ระบบประกาศเสียงขัดข้อง",                  IsActive = true, SortOrder = 5 },
+            // 5: ความสะอาด
+            new ComplaintSubCategory { Id = 22, CategoryId = 5, Name = "ความสะอาดในขบวนรถ",                       IsActive = true, SortOrder = 1 },
+            new ComplaintSubCategory { Id = 23, CategoryId = 5, Name = "ความสะอาดในสถานี",                        IsActive = true, SortOrder = 2 },
+            new ComplaintSubCategory { Id = 24, CategoryId = 5, Name = "ห้องน้ำสกปรก",                            IsActive = true, SortOrder = 3 },
+            new ComplaintSubCategory { Id = 25, CategoryId = 5, Name = "การกำจัดขยะ",                             IsActive = true, SortOrder = 4 },
+            // 6: ตั๋ว / การคืนเงิน
+            new ComplaintSubCategory { Id = 26, CategoryId = 6, Name = "ปัญหาการจองตั๋ว",                        IsActive = true, SortOrder = 1 },
+            new ComplaintSubCategory { Id = 27, CategoryId = 6, Name = "ขอคืนเงินค่าตั๋ว",                       IsActive = true, SortOrder = 2 },
+            new ComplaintSubCategory { Id = 28, CategoryId = 6, Name = "ราคาตั๋วไม่ถูกต้อง",                      IsActive = true, SortOrder = 3 },
+            new ComplaintSubCategory { Id = 29, CategoryId = 6, Name = "ระบบออนไลน์ขัดข้อง",                     IsActive = true, SortOrder = 4 },
+            new ComplaintSubCategory { Id = 30, CategoryId = 6, Name = "ปัญหาโปรโมชั่น / ส่วนลด",                IsActive = true, SortOrder = 5 },
+            // 7: ความปลอดภัย
+            new ComplaintSubCategory { Id = 31, CategoryId = 7, Name = "การโจรกรรม / ทรัพย์สินสูญหาย",           IsActive = true, SortOrder = 1 },
+            new ComplaintSubCategory { Id = 32, CategoryId = 7, Name = "การล่วงละเมิด / คุกคาม",                  IsActive = true, SortOrder = 2 },
+            new ComplaintSubCategory { Id = 33, CategoryId = 7, Name = "ผู้โดยสารก่อกวน / พฤติกรรมน่ารังเกียจ",  IsActive = true, SortOrder = 3 },
+            new ComplaintSubCategory { Id = 34, CategoryId = 7, Name = "อุบัติเหตุในบริเวณสถานี",                 IsActive = true, SortOrder = 4 },
+            new ComplaintSubCategory { Id = 35, CategoryId = 7, Name = "การลักลอบนำสิ่งของอันตราย",               IsActive = true, SortOrder = 5 },
+            // 8: สถานี / ที่จอดรถ
+            new ComplaintSubCategory { Id = 36, CategoryId = 8, Name = "ที่จอดรถไม่เพียงพอ",                     IsActive = true, SortOrder = 1 },
+            new ComplaintSubCategory { Id = 37, CategoryId = 8, Name = "ค่าจอดรถไม่ถูกต้อง",                     IsActive = true, SortOrder = 2 },
+            new ComplaintSubCategory { Id = 38, CategoryId = 8, Name = "สิ่งก่อสร้างกีดขวาง / ทางเข้าออก",       IsActive = true, SortOrder = 3 },
+            new ComplaintSubCategory { Id = 39, CategoryId = 8, Name = "ไฟส่องสว่างไม่เพียงพอ",                   IsActive = true, SortOrder = 4 },
+            // 9: อื่น ๆ
+            new ComplaintSubCategory { Id = 40, CategoryId = 9, Name = "ข้อเสนอแนะทั่วไป",                        IsActive = true, SortOrder = 1 },
+            new ComplaintSubCategory { Id = 41, CategoryId = 9, Name = "ไม่อยู่ในหมวดหมู่ข้างต้น",               IsActive = true, SortOrder = 2 }
+        );
+
         modelBuilder.Entity<ComplaintTerms>(e =>
         {
             e.ToTable("ComplaintTerms", "dbo");
