@@ -197,6 +197,20 @@
   - ลบ query string ?secret= ออก รับแค่ header X-Traffy-Secret → กัน secret รั่วใน log
   - เปลี่ยนจาก == เป็น CryptographicOperations.FixedTimeEquals → กัน timing attack
 
+### Phase 21: Audit Log — พ.ร.บ.คอมพิวเตอร์ 2560 Compliance
+- [x] Models/AuditLog.cs — เพิ่ม UserAgent (nvarchar 500) + Outcome (nvarchar 20)
+- [x] IAuditService / AuditService — เพิ่ม optional params userAgent + outcome
+- [x] Pages/Staff/Login.cshtml.cs — inject IAuditService, log "Login" (Success) + "LoginFailed" (Failed) ทั้ง InvalidCredentials และ TempPasswordExpired
+- [x] Pages/Staff/Logout.cshtml.cs — inject IAuditService, log "Logout" (Success)
+- [x] Services/AuditLogRetentionService.cs — BackgroundService ลบ log เก่ากว่า N วัน ทุก 24 ชั่วโมง (default 90 วัน จาก AuditLog:RetentionDays ใน appsettings.json)
+- [x] Program.cs — register AuditLogRetentionService as HostedService
+- [x] appsettings.json — เพิ่ม AuditLog:RetentionDays = 90
+- [x] Migration: AddAuditLogFields — applied (dbo.AuditLogs + Outcome + UserAgent)
+- [x] Pages/Admin/AuditLog.cshtml — Outcome badge (✓สำเร็จ/✗ล้มเหลว) ใน Action column, UserAgent ใต้ IP
+- [x] Pages/Admin/AuditLog.cshtml.cs — Excel export เพิ่ม col ผลลัพธ์ + User Agent, FormatAction Login/LoginFailed/Logout, FormatDetail LoginFailed reason
+
+**ครอบคลุมตาม พ.ร.บ.:** ตัวตนผู้ใช้ ✅ · วัน/เวลา ✅ · IP Address ✅ · Login/Logout/LoginFailed ✅ · UserAgent/Application ✅ · Outcome สำเร็จ/ล้มเหลว ✅ · Retention ≥90 วัน ✅
+
 ## Notes / Issues พบระหว่างทำ
 
 - ใช้ `@page "{id:int}"` สำหรับ CaseDetail ให้ URL เป็น `/Staff/CaseDetail/123`

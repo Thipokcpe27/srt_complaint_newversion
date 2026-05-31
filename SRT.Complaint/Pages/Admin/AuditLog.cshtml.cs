@@ -97,6 +97,9 @@ public class AuditLogModel(AppDbContext db) : PageModel
         "DeactivateCategory"         => "ปิดใช้งานหมวดหมู่",
         "UpdateNotificationTemplate" => "แก้ไข Template การแจ้งเตือน",
         "DeleteWebhook"              => "ลบ Webhook",
+        "Login"                      => "เข้าสู่ระบบ",
+        "LoginFailed"                => "เข้าสู่ระบบล้มเหลว",
+        "Logout"                     => "ออกจากระบบ",
         _                            => action
     };
 
@@ -142,6 +145,15 @@ public class AuditLogModel(AppDbContext db) : PageModel
                 case "ComplaintSubmitted":
                 case "CorruptionReportSubmitted":
                     Add("เลขที่", Get("refNum", "referenceNumber", "ReferenceNumber"));
+                    break;
+
+                case "LoginFailed":
+                    Add("เหตุผล", Get("reason") switch
+                    {
+                        "InvalidCredentials"  => "รหัสพนักงาน/รหัสผ่านไม่ถูกต้อง",
+                        "TempPasswordExpired" => "รหัสผ่านชั่วคราวหมดอายุ",
+                        var r                 => r
+                    });
                     break;
 
                 case "UpdateStatus":
@@ -297,12 +309,14 @@ public class AuditLogModel(AppDbContext db) : PageModel
 
         ws.Cell(1, 1).Value = "เวลา (UTC+7)";
         ws.Cell(1, 2).Value = "Action";
-        ws.Cell(1, 3).Value = "ผู้กระทำ";
-        ws.Cell(1, 4).Value = "รหัสพนักงาน";
-        ws.Cell(1, 5).Value = "Entity";
-        ws.Cell(1, 6).Value = "Entity ID";
-        ws.Cell(1, 7).Value = "รายละเอียด";
-        ws.Cell(1, 8).Value = "IP Address";
+        ws.Cell(1, 3).Value = "ผลลัพธ์";
+        ws.Cell(1, 4).Value = "ผู้กระทำ";
+        ws.Cell(1, 5).Value = "รหัสพนักงาน";
+        ws.Cell(1, 6).Value = "Entity";
+        ws.Cell(1, 7).Value = "Entity ID";
+        ws.Cell(1, 8).Value = "รายละเอียด";
+        ws.Cell(1, 9).Value = "IP Address";
+        ws.Cell(1, 10).Value = "User Agent";
         ws.Row(1).Style.Font.Bold = true;
         ws.Row(1).Style.Fill.BackgroundColor = XLColor.FromArgb(0x00, 0x31, 0x66);
         ws.Row(1).Style.Font.FontColor = XLColor.White;
@@ -313,12 +327,14 @@ public class AuditLogModel(AppDbContext db) : PageModel
             var row = i + 2;
             ws.Cell(row, 1).Value = log.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss");
             ws.Cell(row, 2).Value = FormatAction(log.Action);
-            ws.Cell(row, 3).Value = log.ActorId.HasValue ? actorNames.GetValueOrDefault(log.ActorId.Value, "") : "ระบบ";
-            ws.Cell(row, 4).Value = log.ActorCode ?? "";
-            ws.Cell(row, 5).Value = EntityTypeLabel(log.EntityType);
-            ws.Cell(row, 6).Value = log.EntityId ?? "";
-            ws.Cell(row, 7).Value = FormatDetail(log.Action, log.Detail);
-            ws.Cell(row, 8).Value = log.IpAddress ?? "";
+            ws.Cell(row, 3).Value = log.Outcome switch { "Success" => "สำเร็จ", "Failed" => "ล้มเหลว", _ => "" };
+            ws.Cell(row, 4).Value = log.ActorId.HasValue ? actorNames.GetValueOrDefault(log.ActorId.Value, "") : "ระบบ";
+            ws.Cell(row, 5).Value = log.ActorCode ?? "";
+            ws.Cell(row, 6).Value = EntityTypeLabel(log.EntityType);
+            ws.Cell(row, 7).Value = log.EntityId ?? "";
+            ws.Cell(row, 8).Value = FormatDetail(log.Action, log.Detail);
+            ws.Cell(row, 9).Value = log.IpAddress ?? "";
+            ws.Cell(row, 10).Value = log.UserAgent ?? "";
         }
 
         ws.Columns().AdjustToContents();

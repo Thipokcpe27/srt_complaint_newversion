@@ -11,7 +11,7 @@ using SRT.Complaint.Services;
 
 namespace SRT.Complaint.Pages.Staff;
 
-public class LoginModel(AppDbContext db, ITurnstileService turnstile, IConfiguration config) : PageModel
+public class LoginModel(AppDbContext db, ITurnstileService turnstile, IConfiguration config, IAuditService audit) : PageModel
 {
     [BindProperty]
     public LoginInputModel Input { get; set; } = new();
@@ -36,7 +36,9 @@ public class LoginModel(AppDbContext db, ITurnstileService turnstile, IConfigura
 
         // Verify Turnstile token
         var token = Request.Form["cf-turnstile-response"].ToString();
-        var ip    = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var ip        = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = Request.Headers.UserAgent.ToString();
+
         if (!await turnstile.VerifyAsync(token, ip))
         {
             ErrorMessage = "การยืนยันตัวตน (Turnstile) ล้มเหลว กรุณาลองใหม่อีกครั้ง";
@@ -48,6 +50,9 @@ public class LoginModel(AppDbContext db, ITurnstileService turnstile, IConfigura
 
         if (staff == null || !BCrypt.Net.BCrypt.Verify(Input.Password, staff.PasswordHash))
         {
+            await audit.LogAsync("LoginFailed", null, Input.EmployeeCode,
+                null, null, new { reason = "InvalidCredentials" },
+                ip, userAgent, "Failed");
             ErrorMessage = "รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง";
             return Page();
         }
@@ -56,6 +61,9 @@ public class LoginModel(AppDbContext db, ITurnstileService turnstile, IConfigura
             staff.TempPasswordExpiresAt.HasValue &&
             staff.TempPasswordExpiresAt.Value < DateTime.UtcNow)
         {
+            await audit.LogAsync("LoginFailed", staff.Id, staff.EmployeeCode,
+                null, null, new { reason = "TempPasswordExpired" },
+                ip, userAgent, "Failed");
             ErrorMessage = "รหัสผ่านชั่วคราวหมดอายุแล้ว กรุณาติดต่อผู้ดูแลระบบเพื่อรีเซ็ตรหัสผ่านใหม่";
             return Page();
         }
@@ -84,6 +92,9 @@ public class LoginModel(AppDbContext db, ITurnstileService turnstile, IConfigura
                 ? DateTimeOffset.UtcNow.AddDays(7)
                 : DateTimeOffset.UtcNow.AddHours(8)
         });
+
+        await audit.LogAsync("Login", staff.Id, staff.EmployeeCode,
+            null, null, null, ip, userAgent, "Success");
 
         if (staff.MustChangePassword)
             return RedirectToPage("/Staff/ChangePassword");

@@ -41,7 +41,7 @@ public class CorruptionService(
         db.Reports.Add(report);
         await db.SaveChangesAsync(ct);
 
-        await auditService.LogAsync("CorruptionReportSubmitted", null, null, "CorruptionReport", report.Id.ToString(), new { refNum }, null, ct);
+        await auditService.LogAsync("CorruptionReportSubmitted", null, null, "CorruptionReport", report.Id.ToString(), new { refNum }, null, ct: ct);
 
         await notificationService.SendAsync("ComplaintReceived", request.ReporterPhone, request.ReporterEmail, new()
         {
@@ -69,7 +69,7 @@ public class CorruptionService(
         report.UpdatedAt = DateTime.UtcNow;
         if (newStatus is "Closed") report.ClosedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("UpdateCorruptionStatus", actorId, null, "CorruptionReport", id.ToString(), new { newStatus }, null, ct);
+        await auditService.LogAsync("UpdateCorruptionStatus", actorId, null, "CorruptionReport", id.ToString(), new { newStatus }, null, ct: ct);
     }
 
     public async Task ClaimAsync(int id, int staffId, CancellationToken ct = default)
@@ -82,7 +82,7 @@ public class CorruptionService(
         report.Status = "InProgress";
         report.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("ClaimCorruptionCase", staffId, null, "CorruptionReport", id.ToString(), null, null, ct);
+        await auditService.LogAsync("ClaimCorruptionCase", staffId, null, "CorruptionReport", id.ToString(), null, null, ct: ct);
     }
 
     public async Task CloseAsync(int id, string resolutionNote, int actorId, CancellationToken ct = default)
@@ -98,7 +98,7 @@ public class CorruptionService(
         report.ClosedAt = null;
         report.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("ReopenCorruptionCase", actorId, null, "CorruptionReport", id.ToString(), null, null, ct);
+        await auditService.LogAsync("ReopenCorruptionCase", actorId, null, "CorruptionReport", id.ToString(), null, null, ct: ct);
     }
 
     public async Task<DecryptedReporterInfo> DecryptReporterInfoAsync(int reportId, int requestedById, string reason, string ipAddress, CancellationToken ct = default)
@@ -115,7 +115,7 @@ public class CorruptionService(
             RequestedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("DecryptReporterInfo", requestedById, null, "CorruptionReport", reportId.ToString(), new { reason }, ipAddress, ct);
+        await auditService.LogAsync("DecryptReporterInfo", requestedById, null, "CorruptionReport", reportId.ToString(), new { reason }, ipAddress, ct: ct);
 
         return new DecryptedReporterInfo(
             masking.Decrypt(report.ReporterNameEncrypted),
@@ -158,7 +158,7 @@ public class CorruptionService(
             CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("AddInvestigationLog", authorId, null, "CorruptionReport", reportId.ToString(), new { isConfidential }, null, ct);
+        await auditService.LogAsync("AddInvestigationLog", authorId, null, "CorruptionReport", reportId.ToString(), new { isConfidential }, null, ct: ct);
     }
 
     public async Task<CorruptionDashboardStats> GetDashboardStatsAsync(CancellationToken ct = default)

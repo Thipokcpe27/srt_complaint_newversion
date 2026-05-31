@@ -30,7 +30,7 @@ public class ApiKeyService(AppDbContext db, IAuditService auditService) : IApiKe
 
         db.ApiKeys.Add(key);
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("CreateApiKey", request.CreatedById, null, "ApiKey", key.Id.ToString(), new { request.Name, request.KeyType }, null, ct);
+        await auditService.LogAsync("CreateApiKey", request.CreatedById, null, "ApiKey", key.Id.ToString(), new { request.Name, request.KeyType }, null, ct: ct);
 
         return (key, rawKey);
     }
@@ -52,7 +52,7 @@ public class ApiKeyService(AppDbContext db, IAuditService auditService) : IApiKe
         key.RevokedById = revokedById;
         key.RevokedReason = reason;
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("RevokeApiKey", revokedById, null, "ApiKey", id.ToString(), new { reason }, null, ct);
+        await auditService.LogAsync("RevokeApiKey", revokedById, null, "ApiKey", id.ToString(), new { reason }, null, ct: ct);
     }
 
     public async Task<IReadOnlyList<ApiKey>> ListAsync(CancellationToken ct = default)

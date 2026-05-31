@@ -107,13 +107,26 @@
                         @log.CreatedAt.ToLocalTime().ToString("dd/MM/yy HH:mm:ss")
                     </td>
                     <td class="px-4 py-2.5">
-                        <span class="text-xs font-medium
-                            @(log.Action.StartsWith("Create") || log.Action.StartsWith("Add") || log.Action.StartsWith("Claim") ? "text-green-700" :
-                              log.Action.StartsWith("Delete") || log.Action.StartsWith("Revoke") || log.Action.StartsWith("Deactivate") ? "text-red-700" :
-                              log.Action.StartsWith("Edit") || log.Action.StartsWith("Update") || log.Action.StartsWith("Reset") || log.Action.StartsWith("Transfer") ? "text-amber-700" :
-                                                                "text-gray-700")">
-                            @AuditLogModel.FormatAction(log.Action)
-                        </span>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="text-xs font-medium
+                                @(log.Action is "Login" ? "text-blue-700" :
+                                  log.Action is "Logout" ? "text-gray-600" :
+                                  log.Action is "LoginFailed" ? "text-red-700" :
+                                  log.Action.StartsWith("Create") || log.Action.StartsWith("Add") || log.Action.StartsWith("Claim") ? "text-green-700" :
+                                  log.Action.StartsWith("Delete") || log.Action.StartsWith("Revoke") || log.Action.StartsWith("Deactivate") ? "text-red-700" :
+                                  log.Action.StartsWith("Edit") || log.Action.StartsWith("Update") || log.Action.StartsWith("Reset") || log.Action.StartsWith("Transfer") ? "text-amber-700" :
+                                  "text-gray-700")">
+                                @AuditLogModel.FormatAction(log.Action)
+                            </span>
+                            @if (log.Outcome == "Success")
+                            {
+                                <span class="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">✓ สำเร็จ</span>
+                            }
+                            else if (log.Outcome == "Failed")
+                            {
+                                <span class="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-medium">✗ ล้มเหลว</span>
+                            }
+                        </div>
                     </td>
                     <td class="px-4 py-2.5 text-xs">
                         @if (log.ActorId.HasValue)
@@ -151,7 +164,13 @@
                         }
                     </td>
                     <td class="px-4 py-2.5 text-xs text-gray-400 font-mono whitespace-nowrap">
-                        @(log.IpAddress ?? "—")
+                        <div title="@log.UserAgent">@(log.IpAddress ?? "—")</div>
+                        @if (!string.IsNullOrEmpty(log.UserAgent))
+                        {
+                            <div class="text-[10px] text-gray-300 truncate max-w-[120px]" title="@log.UserAgent">
+                                @log.UserAgent
+                            </div>
+                        }
                     </td>
                 </tr>
             }

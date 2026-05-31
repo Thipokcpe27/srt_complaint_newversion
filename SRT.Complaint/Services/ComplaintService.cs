@@ -45,7 +45,7 @@ public class ComplaintService(
         await db.SaveChangesAsync(ct);
 
         await SaveAttachmentsAsync(complaint.Id, request.Attachments, ct);
-        await auditService.LogAsync("ComplaintSubmitted", null, null, "Complaint", complaint.Id.ToString(), new { refNum }, null, ct);
+        await auditService.LogAsync("ComplaintSubmitted", null, null, "Complaint", complaint.Id.ToString(), new { refNum }, null, ct: ct);
 
         await notificationService.SendAsync("ComplaintReceived", request.ReporterPhone, request.ReporterEmail, new()
         {
@@ -99,7 +99,7 @@ public class ComplaintService(
             db.ComplaintNotes.Add(new ComplaintNote { ComplaintId = id, AuthorId = actorId, NoteType = "PublicReply", Content = note, CreatedAt = DateTime.UtcNow });
 
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("UpdateStatus", actorId, null, "Complaint", id.ToString(), new { oldStatus, newStatus }, null, ct);
+        await auditService.LogAsync("UpdateStatus", actorId, null, "Complaint", id.ToString(), new { oldStatus, newStatus }, null, ct: ct);
 
         await notificationService.SendAsync("StatusChanged", complaint.ReporterPhone, complaint.ReporterEmail, new()
         {
@@ -133,7 +133,7 @@ public class ComplaintService(
             Content = "Pending→InProgress", CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("ClaimCase", staffId, null, "Complaint", id.ToString(), null, null, ct);
+        await auditService.LogAsync("ClaimCase", staffId, null, "Complaint", id.ToString(), null, null, ct: ct);
     }
 
     public async Task TransferAsync(int id, int toOfficerId, string reason, int actorId, CancellationToken ct = default)
@@ -154,7 +154,7 @@ public class ComplaintService(
         complaint.AssignedAt = DateTime.UtcNow;
         complaint.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("TransferCase", actorId, null, "Complaint", id.ToString(), new { toOfficerId, reason }, null, ct);
+        await auditService.LogAsync("TransferCase", actorId, null, "Complaint", id.ToString(), new { toOfficerId, reason }, null, ct: ct);
     }
 
     public async Task CloseAsync(int id, string resolutionNote, int actorId, CancellationToken ct = default)
@@ -175,7 +175,7 @@ public class ComplaintService(
             Content = "Closed→InProgress (เปิดใหม่)", CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("ReopenCase", actorId, null, "Complaint", id.ToString(), null, null, ct);
+        await auditService.LogAsync("ReopenCase", actorId, null, "Complaint", id.ToString(), null, null, ct: ct);
     }
 
     public async Task<IReadOnlyList<Models.Complaint>> GetQueueAsync(ComplaintQueueFilter filter, CancellationToken ct = default)
@@ -204,7 +204,7 @@ public class ComplaintService(
             CreatedAt = DateTime.UtcNow
         });
         await db.SaveChangesAsync(ct);
-        await auditService.LogAsync("AddNote", authorId, null, "Complaint", id.ToString(), new { noteType }, null, ct);
+        await auditService.LogAsync("AddNote", authorId, null, "Complaint", id.ToString(), new { noteType }, null, ct: ct);
     }
 
     public async Task<DashboardStats> GetDashboardStatsAsync(CancellationToken ct = default)

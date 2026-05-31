@@ -11,6 +11,8 @@ public class AuditLog
     public string? EntityId { get; set; }
     public string? Detail { get; set; }
     public string? IpAddress { get; set; }
+    public string? UserAgent { get; set; }
+    public string? Outcome { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public StaffUser? Actor { get; set; }

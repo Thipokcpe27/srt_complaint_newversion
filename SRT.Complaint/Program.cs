@@ -142,6 +142,7 @@ try
     // ──────────── Background Services ────────────
     builder.Services.AddHostedService<SlaBackgroundService>();
     builder.Services.AddHostedService<WebhookRetryService>();
+    builder.Services.AddHostedService<AuditLogRetentionService>();
 
     // ──────────── MVC & Razor Pages ────────────
     builder.Services.AddControllers();
