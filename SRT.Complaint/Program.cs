@@ -159,10 +159,13 @@ try
     var app = builder.Build();
 
     // ──────────── Startup validation ────────────
-    var encryptionKey = builder.Configuration["Encryption:Key"];
-    if (string.IsNullOrWhiteSpace(encryptionKey))
+    if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
         throw new InvalidOperationException(
-            "Encryption:Key ยังไม่ได้ตั้งค่า — กำหนด Environment Variable 'Encryption__Key' ใน IIS ก่อน deploy");
+            "ConnectionStrings:DefaultConnection ยังไม่ได้ตั้งค่า — ใส่ใน appsettings.Production.json หรือ Environment Variable");
+
+    if (string.IsNullOrWhiteSpace(builder.Configuration["Encryption:Key"]))
+        throw new InvalidOperationException(
+            "Encryption:Key ยังไม่ได้ตั้งค่า — ใส่ใน appsettings.Production.json หรือ Environment Variable 'Encryption__Key'");
 
     // ──────────── Seed SuperAdmin (first-run only) ────────────
     var tempAdminPassword = Convert.ToBase64String(RandomNumberGenerator.GetBytes(12));

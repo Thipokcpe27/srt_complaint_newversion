@@ -360,9 +360,40 @@ git push --force
 
 ## การตั้งค่า (Configuration)
 
-ไฟล์ `appsettings.json` เก็บแค่ค่า non-sensitive — **Secret ทุกอย่างใส่ใน Environment Variables หรือ `appsettings.Development.local.json` เท่านั้น**
+### โครงสร้างไฟล์ Config (แยก Dev / Prod ชัดเจน)
 
-`appsettings.json` (template — ห้ามใส่ key จริง):
+| ไฟล์ | Committed | โหลดเมื่อ | วัตถุประสงค์ |
+|---|---|---|---|
+| `appsettings.json` | ✅ ใช่ | เสมอ | Default ที่ไม่ใช่ secret — rate limit, log level ฯลฯ |
+| `appsettings.Development.local.json` | ❌ gitignored | Dev เท่านั้น | Dev secrets: DB, encryption key, SMTP dev |
+| `appsettings.Production.json` | ❌ gitignored | Prod เท่านั้น | Prod secrets ทั้งหมด (วางบน server) |
+| `appsettings.Production.example.json` | ✅ ใช่ | ไม่โหลด | Template อ้างอิง — copy → `appsettings.Production.json` แล้วกรอกค่า |
+
+> **กฎ:** แอปจะไม่ start ถ้า `ConnectionStrings:DefaultConnection` หรือ `Encryption:Key` ว่างเปล่า — ป้องกัน deploy โดยไม่ตั้งค่า
+
+---
+
+### `appsettings.json` (base — committed, ไม่มี secret)
+
+ไฟล์นี้มีเฉพาะ default ที่ใช้ได้ทั้ง Dev และ Prod — ค่าว่างหมายถึง "ต้องตั้งใน env-specific file":
+
+```json
+{
+  "ConnectionStrings": { "DefaultConnection": "" },
+  "Encryption": { "Key": "" },
+  "Security": {
+    "SubmitLimitPerHour": 5,
+    "SessionTimeoutMinutes": 30
+  },
+  "AuditLog": { "RetentionDays": 90 }
+}
+```
+
+---
+
+### `appsettings.Development.local.json` (dev — gitignored, ไม่ commit)
+
+สร้างไฟล์นี้บนเครื่อง dev ของตัวเอง ไม่มีใน repo:
 
 ```json
 {
@@ -370,63 +401,29 @@ git push --force
     "DefaultConnection": "Server=.\\SQLEXPRESS;Database=SRT_Complaint;Trusted_Connection=True;TrustServerCertificate=True"
   },
   "Encryption": {
-    "Key": ""
-  },
-  "Notifications": {
-    "SmsGatewayUrl": "https://sms-gateway.example.com/send",
-    "SmsApiKey": "<SMS API Key>",
-    "SmtpHost": "smtp.example.com",
-    "SmtpPort": 587,
-    "SmtpUser": "noreply@railway.co.th",
-    "SmtpPassword": "<SMTP Password>"
+    "Key": "<สร้างด้วย PowerShell ด้านล่าง>"
   },
   "FileUpload": {
     "StoragePath": "C:\\SRT_Uploads\\Complaints\\"
-  },
-  "Turnstile": {
-    "SiteKey": "<Cloudflare Site Key — เว้นว่างเพื่อข้ามใน dev>",
-    "SecretKey": "<Cloudflare Secret Key — เว้นว่างเพื่อข้ามใน dev>"
-  },
-  "TraffyFondue": {
-    "ApiUrl": "https://publicapi.traffy.in.th/exchange-api",
-    "Username": "<org username จาก NECTEC>",
-    "Password": "<org password>",
-    "OrgId": "<รหัส org ของ รฟท. จาก NECTEC>",
-    "WebhookSecret": "<random secret — ส่งให้ NECTEC เพื่อลงทะเบียน webhook>"
-  },
-  "AuditLog": {
-    "RetentionDays": 90
-  },
-  "Security": {
-    "SubmitLimitPerHour": 5,
-    "LoginLimitPerWindow": 10,
-    "LoginWindowMinutes": 15,
-    "TrackVerifyLimitPerWindow": 10,
-    "TrackVerifyWindowMinutes": 15,
-    "SessionTimeoutMinutes": 30
   }
 }
 ```
+
+---
+
+### `appsettings.Production.json` (prod — gitignored, วางบน server เท่านั้น)
+
+คัดลอกจาก `appsettings.Production.example.json` แล้วกรอกค่าจริง:
+
+```bash
+# บน Production Server
+cp appsettings.Production.example.json appsettings.Production.json
+# แก้ไขค่าทุกช่อง <...> ให้เป็นค่าจริง
+```
+
+ไฟล์นี้โหลดอัตโนมัติเมื่อ `ASPNETCORE_ENVIRONMENT=Production` (ตั้งใน IIS) และ override ค่าใน `appsettings.json`
 
 > ค่าใน `Security` และ `AuditLog` สามารถเปลี่ยนได้ผ่าน Admin → ตั้งค่าระบบ โดยไม่ต้องแก้ไฟล์โดยตรง
-
-### ตั้งค่า Secrets สำหรับ Development
-
-สร้างไฟล์ `SRT.Complaint/appsettings.Development.local.json` (อยู่ใน `.gitignore` แล้ว — **ห้าม commit**):
-
-```json
-{
-  "Encryption": {
-    "Key": "<Base64 32 bytes — สร้างด้วย PowerShell ด้านล่าง>"
-  },
-  "Notifications": {
-    "SmtpHost": "localhost",
-    "SmtpPort": 1025
-  }
-}
-```
-
-> ไฟล์นี้จะ override `appsettings.json` โดยอัตโนมัติเมื่อรัน Development — แอปจะไม่ start ถ้าไม่มี `Encryption:Key`
 
 ### สร้าง Encryption Key
 
