@@ -1,0 +1,99 @@
+@page
+@model SRT.Complaint.Pages.MaintenanceModel
+@{
+    Layout = null;
+    Response.StatusCode = 503;
+}
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ปิดปรับปรุงระบบ — รฟท.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Sarabun', sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1b3a6e 0%, #0f2347 100%);
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px;
+        }
+        .card {
+            background: #fff;
+            border-radius: 20px;
+            box-shadow: 0 24px 60px rgba(0,0,0,.25);
+            padding: 48px 40px;
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+        }
+        .icon-wrap {
+            width: 72px; height: 72px;
+            background: #fff8e7;
+            border-radius: 20px;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 24px;
+        }
+        h1 { font-size: 1.6rem; font-weight: 800; color: #1b3a6e; margin-bottom: 12px; }
+        .msg { font-size: 1rem; color: #4b5563; line-height: 1.7; margin-bottom: 20px; }
+        .back-time {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: #f0f4fb; border: 1px solid #dce6f5;
+            border-radius: 30px; padding: 8px 18px;
+            font-size: .85rem; font-weight: 600; color: #1b3a6e;
+            margin-bottom: 28px;
+        }
+        .contact { font-size: .85rem; color: #9ca3af; }
+        .contact a { color: #1b3a6e; font-weight: 700; text-decoration: none; }
+        .staff-link {
+            display: inline-block; margin-top: 32px;
+            font-size: .78rem; color: #9ca3af;
+        }
+        .staff-link a { color: #6b7280; text-decoration: underline; }
+        @@media (max-width: 520px) {
+            .card { padding: 36px 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon-wrap">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+                 stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/>
+            </svg>
+        </div>
+
+        <img src="/images/srt-logo.png"
+             alt="การรถไฟแห่งประเทศไทย"
+             style="height:48px;width:auto;object-fit:contain;margin:0 auto 20px;display:block;filter:brightness(0) saturate(100%) invert(18%) sepia(55%) saturate(700%) hue-rotate(197deg);" />
+
+        <h1>ปิดปรับปรุงระบบชั่วคราว</h1>
+
+        <p class="msg">@Model.Message</p>
+
+        @if (!string.IsNullOrEmpty(Model.ExpectedBack))
+        {
+            <div class="back-time">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                คาดว่าจะกลับมาให้บริการ: @Model.ExpectedBack
+            </div>
+        }
+
+        <p class="contact">
+            ติดต่อสอบถาม
+            <a href="tel:1690">☎ 1690</a>
+        </p>
+
+        <p class="staff-link">
+            เจ้าหน้าที่: <a href="/Staff/Login">เข้าสู่ระบบ</a>
+        </p>
+    </div>
+</body>
+</html>

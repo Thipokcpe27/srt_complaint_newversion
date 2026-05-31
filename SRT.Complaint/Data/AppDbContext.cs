@@ -23,6 +23,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
     public DbSet<ComplaintTerms> ComplaintTerms => Set<ComplaintTerms>();
     public DbSet<ContentBlock> ContentBlocks => Set<ContentBlock>();
     public DbSet<ExternalSyncLog> ExternalSyncLogs => Set<ExternalSyncLog>();
+    public DbSet<FaqItem> FaqItems => Set<FaqItem>();
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -204,6 +206,16 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<FaqItem>(e =>
+        {
+            e.ToTable("FaqItems", "dbo");
+            e.Property(x => x.Question).HasMaxLength(500);
+            e.Property(x => x.Category).HasMaxLength(100);
+            e.HasOne(x => x.UpdatedBy).WithMany()
+             .HasForeignKey(x => x.UpdatedById)
+             .OnDelete(DeleteBehavior.SetNull);
+        });
+
         SeedData(modelBuilder);
     }
 
@@ -302,6 +314,21 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
              .WithMany()
              .HasForeignKey(x => x.UpdatedById)
              .OnDelete(DeleteBehavior.ClientSetNull);
+        });
+
+        modelBuilder.Entity<SystemSetting>(e =>
+        {
+            e.ToTable("SystemSettings", "dbo");
+            e.HasKey(x => x.Key);
+            e.Property(x => x.Key).HasMaxLength(100);
+            e.Property(x => x.Value).HasMaxLength(2000);
+            e.Property(x => x.Group).HasMaxLength(50);
+            e.Property(x => x.Label).HasMaxLength(200);
+            e.Property(x => x.Description).HasMaxLength(500);
+            e.HasOne(x => x.UpdatedBy).WithMany()
+             .HasForeignKey(x => x.UpdatedById)
+             .OnDelete(DeleteBehavior.ClientSetNull);
+            e.HasIndex(x => x.Group);
         });
     }
 }

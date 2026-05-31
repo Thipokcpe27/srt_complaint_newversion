@@ -1,0 +1,586 @@
+@page
+@model SRT.Complaint.Pages.Admin.SettingsModel
+@{
+    ViewData["Title"] = "ตั้งค่าระบบ";
+    Layout = "_StaffLayout";
+
+    bool IsTab(string t) => Model.ActiveTab == t;
+
+    string TabCls(string t) => IsTab(t)
+        ? "px-4 py-1.5 rounded-lg text-sm font-semibold bg-white shadow-sm text-srt-navy"
+        : "px-4 py-1.5 rounded-lg text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors";
+}
+
+<div class="max-w-3xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">ตั้งค่าระบบ</h1>
+        <p class="text-gray-500 text-sm mt-1">กำหนดข้อมูลองค์กรและค่าต่าง ๆ ที่ระบบใช้แสดงผล</p>
+    </div>
+
+    <!-- Tab nav -->
+    <div class="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit flex-wrap">
+        <a href="?tab=org"      class="@TabCls("org")">ข้อมูลองค์กร</a>
+        <a href="?tab=notify"   class="@TabCls("notify")">การแจ้งเตือน</a>
+        <a href="?tab=security"     class="@TabCls("security")">ความปลอดภัย</a>
+        <a href="?tab=traffy"       class="@TabCls("traffy")">Traffy Fondue</a>
+        <a href="?tab=maintenance"  class="@TabCls("maintenance") relative">
+            Maintenance
+            @if (Model.MaintenanceEnabled)
+            {
+                <span class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-white"></span>
+            }
+        </a>
+    </div>
+
+    @* ══════════════════════════════════
+       TAB: ข้อมูลองค์กร
+    ══════════════════════════════════ *@
+    @if (IsTab("org"))
+    {
+        <div class="card p-0 overflow-hidden">
+            <div class="bg-gradient-navy px-6 py-4 flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-blue-200 text-[11px] font-semibold uppercase tracking-wider">หมวด</p>
+                    <p class="text-white font-bold">ข้อมูลองค์กร</p>
+                </div>
+            </div>
+
+            <form method="post" asp-page-handler="Org" class="p-6 space-y-5">
+                @Html.AntiForgeryToken()
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                            ชื่อองค์กร (เต็ม) <span class="text-red-500">*</span>
+                        </label>
+                        <input asp-for="OrgName" type="text" required class="form-input w-full"
+                               placeholder="การรถไฟแห่งประเทศไทย" />
+                        <p class="text-xs text-gray-400 mt-1">ใช้แสดงใน PDF รายงาน และอีเมล</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                            ชื่อย่อ <span class="text-red-500">*</span>
+                        </label>
+                        <input asp-for="OrgNameShort" type="text" required class="form-input w-full" placeholder="รฟท." />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">เบอร์โทรศัพท์</label>
+                        <input asp-for="OrgPhone" type="text" class="form-input w-full" placeholder="1690" />
+                        <p class="text-xs text-gray-400 mt-1">แสดงใน footer และหน้า FAQ</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">อีเมลติดต่อ</label>
+                        <input asp-for="OrgEmail" type="email" class="form-input w-full" placeholder="complaint@railway.co.th" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">เว็บไซต์</label>
+                        <input asp-for="OrgWebsite" type="url" class="form-input w-full" placeholder="https://www.railway.co.th" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">ที่อยู่</label>
+                        <textarea asp-for="OrgAddress" rows="2" class="form-textarea w-full"
+                                  placeholder="1 ถ.รองเมือง แขวงรองเมือง เขตปทุมวัน กรุงเทพฯ 10330"></textarea>
+                        <p class="text-xs text-gray-400 mt-1">แสดงใน footer และ PDF</p>
+                    </div>
+                </div>
+                <div class="flex justify-end pt-2 border-t border-gray-100">
+                    <button type="submit" class="btn-primary">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        บันทึกข้อมูลองค์กร
+                    </button>
+                </div>
+            </form>
+        </div>
+    }
+
+    @* ══════════════════════════════════
+       TAB: การแจ้งเตือน
+    ══════════════════════════════════ *@
+    @if (IsTab("notify"))
+    {
+        <form method="post" asp-page-handler="Notify" class="space-y-5">
+            @Html.AntiForgeryToken()
+
+            <!-- ── Email / SMTP ── -->
+            <div class="card p-0 overflow-hidden">
+                <div class="bg-gradient-to-r from-blue-700 to-blue-600 px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-blue-200 text-[11px] font-semibold uppercase tracking-wider">ช่องทาง</p>
+                            <p class="text-white font-bold">อีเมล (SMTP)</p>
+                        </div>
+                    </div>
+                    <!-- Toggle switch -->
+                    <label class="relative inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" asp-for="EmailEnabled" class="sr-only peer" />
+                        <div class="w-10 h-5 bg-white/30 rounded-full peer peer-checked:bg-emerald-400
+                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                    after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                                    peer-checked:after:translate-x-5 relative"></div>
+                        <span class="text-white text-sm font-semibold peer-checked:text-emerald-200 transition-colors">
+                            เปิดใช้งาน
+                        </span>
+                    </label>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div class="sm:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">ชื่อผู้ส่ง</label>
+                            <input asp-for="SmtpFromName" type="text" class="form-input w-full"
+                                   placeholder="ระบบรับเรื่องร้องเรียน รฟท." />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">อีเมลผู้ส่ง (From)</label>
+                            <input asp-for="SmtpFromEmail" type="email" class="form-input w-full"
+                                   placeholder="noreply@railway.co.th" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">SMTP Host</label>
+                            <input asp-for="SmtpHost" type="text" class="form-input w-full"
+                                   placeholder="smtp.gmail.com" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">SMTP Port</label>
+                            <input asp-for="SmtpPort" type="number" min="1" max="65535" class="form-input w-full"
+                                   placeholder="587" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">SMTP Username</label>
+                            <input asp-for="SmtpUser" type="text" autocomplete="off" class="form-input w-full"
+                                   placeholder="user@gmail.com" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                                SMTP Password
+                                <span class="text-xs text-gray-400 font-normal ml-1">(เว้นว่างเพื่อคงรหัสเดิม)</span>
+                            </label>
+                            <input asp-for="SmtpPass" type="password" autocomplete="new-password" class="form-input w-full"
+                                   placeholder="••••••••" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ── SMS ── -->
+            <div class="card p-0 overflow-hidden">
+                <div class="bg-gradient-to-r from-emerald-700 to-emerald-600 px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-emerald-200 text-[11px] font-semibold uppercase tracking-wider">ช่องทาง</p>
+                            <p class="text-white font-bold">SMS Gateway</p>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" asp-for="SmsEnabled" class="sr-only peer" />
+                        <div class="w-10 h-5 bg-white/30 rounded-full peer peer-checked:bg-emerald-400
+                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                    after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                                    peer-checked:after:translate-x-5 relative"></div>
+                        <span class="text-white text-sm font-semibold peer-checked:text-emerald-200 transition-colors">
+                            เปิดใช้งาน
+                        </span>
+                    </label>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div class="sm:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Gateway URL</label>
+                            <input asp-for="SmsGatewayUrl" type="url" class="form-input w-full"
+                                   placeholder="https://sms.example.com/api/send" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                                API Key
+                                <span class="text-xs text-gray-400 font-normal ml-1">(เว้นว่างเพื่อคงค่าเดิม)</span>
+                            </label>
+                            <input asp-for="SmsApiKey" type="password" autocomplete="new-password" class="form-input w-full"
+                                   placeholder="••••••••" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">ชื่อผู้ส่ง (Sender ID)</label>
+                            <input asp-for="SmsSender" type="text" maxlength="11" class="form-input w-full"
+                                   placeholder="SRT" />
+                            <p class="text-xs text-gray-400 mt-1">ไม่เกิน 11 ตัวอักษร ไม่มีช่องว่าง</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- หมายเหตุ sensitive -->
+            <div class="flex items-start gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+                <svg class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>Password และ API Key ถูกเก็บใน database — สำหรับ production ควรใช้ Environment Variables แทน
+                (<code class="font-mono bg-gray-100 px-1 rounded">Notifications__SmtpPassword</code>) เพื่อความปลอดภัยสูงสุด</span>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="submit" class="btn-primary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    บันทึกการตั้งค่าแจ้งเตือน
+                </button>
+            </div>
+        </form>
+    }
+
+    @* ══════════════════════════════════
+       TAB: Traffy Fondue
+    ══════════════════════════════════ *@
+    @if (IsTab("traffy"))
+    {
+        <form method="post" asp-page-handler="Traffy" class="space-y-5">
+            @Html.AntiForgeryToken()
+
+            <div class="card p-0 overflow-hidden">
+                <div class="bg-gradient-to-r from-teal-700 to-teal-600 px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-teal-200 text-[11px] font-semibold uppercase tracking-wider">การเชื่อมต่อ</p>
+                            <p class="text-white font-bold">Traffy Fondue Integration</p>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" asp-for="TraffyEnabled" class="sr-only peer" />
+                        <div class="w-10 h-5 bg-white/30 rounded-full peer peer-checked:bg-emerald-400
+                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                    after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all
+                                    peer-checked:after:translate-x-5 relative"></div>
+                        <span class="text-white text-sm font-semibold peer-checked:text-emerald-200">เปิดใช้งาน</span>
+                    </label>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    <div class="bg-teal-50 border border-teal-100 rounded-xl px-4 py-3 text-xs text-teal-700 leading-relaxed">
+                        Traffy Fondue เป็นระบบรับแจ้งปัญหาของ NECTEC/NSTDA — เมื่อเปิดใช้งาน
+                        เจ้าหน้าที่สามารถดึงเรื่องร้องเรียนจาก Traffy มาใส่ในระบบได้จากหน้าคิวเรื่องร้องเรียน
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div class="sm:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">API Base URL</label>
+                            <input asp-for="TraffyApiUrl" type="url" class="form-input w-full"
+                                   placeholder="https://publicapi.traffy.in.th/exchange-api" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Org ID</label>
+                            <input asp-for="TraffyOrgId" type="text" class="form-input w-full"
+                                   placeholder="รหัสองค์กรใน Traffy" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">Username</label>
+                            <input asp-for="TraffyUsername" type="text" autocomplete="off" class="form-input w-full"
+                                   placeholder="Traffy Exchange username" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                                Password
+                                <span class="text-xs text-gray-400 font-normal ml-1">(เว้นว่างเพื่อคงรหัสเดิม)</span>
+                            </label>
+                            <input asp-for="TraffyPassword" type="password" autocomplete="new-password"
+                                   class="form-input w-full" placeholder="••••••••" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                                Webhook Secret
+                                <span class="text-xs text-gray-400 font-normal ml-1">(เว้นว่างเพื่อคงค่าเดิม)</span>
+                            </label>
+                            <input asp-for="TraffyWebhookSecret" type="password" autocomplete="new-password"
+                                   class="form-input w-full" placeholder="••••••••" />
+                            <p class="text-xs text-gray-400 mt-1">
+                                ใช้ตรวจสอบ Webhook จาก Traffy ผ่าน Header <code class="font-mono bg-gray-100 px-1 rounded">X-Traffy-Secret</code>
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-start gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
+                        <svg class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span>การเปลี่ยน credentials มีผลทันทีใน 60 วินาที (settings cache) — token จะถูก refresh อัตโนมัติเมื่อ credentials เปลี่ยน</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="submit" class="btn-primary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    บันทึกการตั้งค่า Traffy Fondue
+                </button>
+            </div>
+        </form>
+    }
+
+    @* ══════════════════════════════════
+       TAB: Maintenance Mode
+    ══════════════════════════════════ *@
+    @if (IsTab("maintenance"))
+    {
+        <!-- Status banner -->
+        <div class="rounded-2xl px-5 py-4 flex items-center gap-4 border @(Model.MaintenanceEnabled
+                ? "bg-red-50 border-red-200 text-red-800"
+                : "bg-emerald-50 border-emerald-200 text-emerald-800")">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 @(Model.MaintenanceEnabled ? "bg-red-100" : "bg-emerald-100")">
+                @if (Model.MaintenanceEnabled)
+                {
+                    <svg class="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                }
+                else
+                {
+                    <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                }
+            </div>
+            <div>
+                <p class="font-bold text-sm">
+                    @(Model.MaintenanceEnabled ? "⚠️ Maintenance Mode เปิดอยู่" : "ระบบให้บริการปกติ")
+                </p>
+                <p class="text-xs mt-0.5 opacity-75">
+                    @(Model.MaintenanceEnabled
+                        ? "ประชาชนจะเห็นหน้าปิดปรับปรุง — เจ้าหน้าที่ที่ login แล้วยังเข้าได้ปกติ"
+                        : "ประชาชนสามารถใช้งานระบบได้ตามปกติ")
+                </p>
+            </div>
+        </div>
+
+        <form method="post" asp-page-handler="Maintenance" class="space-y-5">
+            @Html.AntiForgeryToken()
+
+            <div class="card p-0 overflow-hidden">
+                <div class="bg-gradient-to-r from-slate-700 to-slate-600 px-6 py-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                            <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                      d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
+                            </svg>
+                        </div>
+                        <div>
+                            <p class="text-slate-300 text-[11px] font-semibold uppercase tracking-wider">สถานะ</p>
+                            <p class="text-white font-bold">Maintenance Mode</p>
+                        </div>
+                    </div>
+                    <!-- Master toggle -->
+                    <label class="relative inline-flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" asp-for="MaintenanceEnabled" class="sr-only peer" />
+                        <div class="w-12 h-6 bg-white/30 rounded-full peer peer-checked:bg-red-500
+                                    after:content-[''] after:absolute after:top-0.5 after:left-0.5
+                                    after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all
+                                    peer-checked:after:translate-x-6 relative"></div>
+                        <span class="text-white text-sm font-semibold peer-checked:text-red-200">เปิด</span>
+                    </label>
+                </div>
+
+                <div class="p-6 space-y-5">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                            ข้อความที่แสดงกับประชาชน
+                        </label>
+                        <textarea asp-for="MaintenanceMessage" rows="3" class="form-textarea w-full"
+                                  placeholder="ระบบอยู่ระหว่างปรับปรุง กรุณากลับมาใหม่ในภายหลัง"></textarea>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                            เวลาที่คาดว่าจะกลับมาให้บริการ
+                            <span class="text-xs text-gray-400 font-normal ml-1">(ไม่บังคับ)</span>
+                        </label>
+                        <input asp-for="MaintenanceExpectedBack" type="text" class="form-input w-full"
+                               placeholder="เช่น วันที่ 1 มิถุนายน 2568 เวลา 08:00 น." />
+                        <p class="text-xs text-gray-400 mt-1">แสดงใต้ข้อความบนหน้าปิดปรับปรุง</p>
+                    </div>
+
+                    <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700">
+                        <strong>หมายเหตุ:</strong> มีผลทันทีภายใน 30 วินาที (cache refresh) — เจ้าหน้าที่ที่ login แล้วยังเข้าหน้า Staff/Admin ได้ตามปกติ
+                    </div>
+                </div>
+            </div>
+
+            <!-- Preview link -->
+            <div class="text-center">
+                <a href="/Maintenance" target="_blank"
+                   class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-srt-navy transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                    </svg>
+                    ดูตัวอย่างหน้าปิดปรับปรุง
+                </a>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="submit"
+                        class="@(Model.MaintenanceEnabled ? "bg-red-600 hover:bg-red-700 text-white font-semibold px-5 py-2.5 rounded-xl inline-flex items-center gap-2 text-sm transition" : "btn-primary")">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    บันทึกการตั้งค่า
+                </button>
+            </div>
+        </form>
+    }
+
+    @* ══════════════════════════════════
+       TAB: ความปลอดภัย & Rate Limit
+    ══════════════════════════════════ *@
+    @if (IsTab("security"))
+    {
+        <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-sm text-amber-800">
+            <svg class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <div>
+                <p class="font-semibold mb-0.5">ค่าที่แสดงคือค่าที่ใช้อยู่จริงในขณะนี้</p>
+                <p class="text-amber-700 text-xs leading-relaxed">
+                    การเปลี่ยนแปลงจะถูกเขียนลง <code class="font-mono bg-amber-100 px-1 rounded">appsettings.json</code>
+                    และมีผลหลังรีสตาร์ทแอปพลิเคชัน
+                    หากใช้ Environment Variables ค่านั้นจะ override ค่าที่บันทึกไว้เสมอ
+                </p>
+            </div>
+        </div>
+
+        <form method="post" asp-page-handler="Security" class="space-y-5">
+            @Html.AntiForgeryToken()
+
+            <!-- Rate Limiting -->
+            <div class="card p-0 overflow-hidden">
+                <div class="bg-gradient-to-r from-rose-700 to-rose-600 px-6 py-4 flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-rose-200 text-[11px] font-semibold uppercase tracking-wider">จำกัดการเข้าถึง</p>
+                        <p class="text-white font-bold">Rate Limiting</p>
+                    </div>
+                </div>
+                <div class="p-6 space-y-6">
+
+                    <div>
+                        <p class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-rose-400 shrink-0"></span>
+                            การยื่นเรื่องร้องเรียน (Submit)
+                        </p>
+                        <div class="max-w-xs">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">จำนวนสูงสุด (ครั้ง)</label>
+                            <input asp-for="SubmitLimitPerHour" type="number" min="1" max="100" class="form-input w-full" />
+                            <p class="text-xs text-gray-400 mt-1">ต่อ IP ต่อ 1 ชั่วโมง</p>
+                        </div>
+                    </div>
+
+                    <hr class="border-gray-100" />
+
+                    <div>
+                        <p class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-orange-400 shrink-0"></span>
+                            การเข้าสู่ระบบ (Login)
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-sm">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1.5">จำนวนสูงสุด (ครั้ง)</label>
+                                <input asp-for="LoginLimitPerWindow" type="number" min="1" max="100" class="form-input w-full" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1.5">ช่วงเวลา (นาที)</label>
+                                <input asp-for="LoginWindowMinutes" type="number" min="1" max="1440" class="form-input w-full" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="border-gray-100" />
+
+                    <div>
+                        <p class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-yellow-400 shrink-0"></span>
+                            การยืนยันตัวตนติดตามสถานะ (Track Verify)
+                        </p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-sm">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1.5">จำนวนสูงสุด (ครั้ง)</label>
+                                <input asp-for="TrackVerifyLimitPerWindow" type="number" min="1" max="100" class="form-input w-full" />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1.5">ช่วงเวลา (นาที)</label>
+                                <input asp-for="TrackVerifyWindowMinutes" type="number" min="1" max="1440" class="form-input w-full" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Session -->
+            <div class="card p-0 overflow-hidden">
+                <div class="bg-gradient-to-r from-slate-700 to-slate-600 px-6 py-4 flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-slate-300 text-[11px] font-semibold uppercase tracking-wider">เซสชัน</p>
+                        <p class="text-white font-bold">Session Timeout</p>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <div class="max-w-xs">
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">หมดเวลา Idle (นาที)</label>
+                        <input asp-for="SessionTimeoutMinutes" type="number" min="5" max="480" class="form-input w-full" />
+                        <p class="text-xs text-gray-400 mt-1">ค่าแนะนำ 30 นาที</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="submit" class="btn-primary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    บันทึกและเขียน appsettings.json
+                </button>
+            </div>
+        </form>
+    }
+
+</div>

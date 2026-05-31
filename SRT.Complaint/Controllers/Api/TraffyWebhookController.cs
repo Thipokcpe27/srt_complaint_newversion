@@ -1,4 +1,6 @@
 #nullable enable
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SRT.Complaint.Data;
@@ -10,30 +12,30 @@ namespace SRT.Complaint.Controllers.Api;
 /// <summary>
 /// Receives real-time push notifications from Traffy Fondue Exchange API.
 ///
-/// Register webhook URLs with Traffy support:
-///   New issue  : POST  https://your-domain/api/traffy-webhook/new-issue
-///   Status update: PATCH https://your-domain/api/traffy-webhook/update-status
+/// Traffy ไม่มี signature/header mechanism — ให้ register URL ที่มี secret เป็น path segment:
+///   New issue    : POST  https://your-domain/api/traffy-webhook/{secret}/new-issue
+///   Status update: PATCH https://your-domain/api/traffy-webhook/{secret}/update-status
 ///
-/// Traffy signs nothing — secure by using a secret token in the path or header.
-/// Add TraffyFondue:WebhookSecret in appsettings and compare on every request.
+/// Secret ตั้งค่าได้ที่ Admin → ตั้งค่าระบบ → Traffy Fondue (key: traffy.webhook_secret)
 /// </summary>
 [ApiController]
 [Route("api/traffy-webhook")]
 public class TraffyWebhookController(
-    IComplaintService complaintService,
-    AppDbContext      db,
-    IConfiguration    config,
+    IComplaintService       complaintService,
+    AppDbContext            db,
+    ISystemSettingService   sysSettings,
     ILogger<TraffyWebhookController> logger) : ControllerBase
 {
     private const string SystemKey = "traffy_fondue";
 
     // ─── New issue pushed by Traffy ───────────────────────────────
-    [HttpPost("new-issue")]
+    [HttpPost("{token}/new-issue")]
     public async Task<IActionResult> NewIssue(
+        string token,
         [FromBody] TraffyWebhookIssue payload,
         CancellationToken ct)
     {
-        if (!ValidateSecret()) return Unauthorized();
+        if (!await ValidateSecretAsync(token)) return Unauthorized();
         if (string.IsNullOrEmpty(payload.TicketId)) return BadRequest("ticket_id required");
 
         logger.LogInformation("Traffy webhook: new issue {TicketId}", payload.TicketId);
@@ -88,12 +90,13 @@ public class TraffyWebhookController(
     }
 
     // ─── Status update pushed by Traffy ──────────────────────────
-    [HttpPatch("update-status")]
+    [HttpPatch("{token}/update-status")]
     public async Task<IActionResult> UpdateStatus(
+        string token,
         [FromBody] TraffyWebhookStatusUpdate payload,
         CancellationToken ct)
     {
-        if (!ValidateSecret()) return Unauthorized();
+        if (!await ValidateSecretAsync(token)) return Unauthorized();
         if (string.IsNullOrEmpty(payload.TicketId)) return BadRequest("ticket_id required");
 
         logger.LogInformation("Traffy webhook: status update {TicketId} → status_id={StatusId}",
@@ -140,15 +143,25 @@ public class TraffyWebhookController(
     }
 
     // ─── Helpers ──────────────────────────────────────────────────
-    private bool ValidateSecret()
-    {
-        var secret = config["TraffyFondue:WebhookSecret"];
-        if (string.IsNullOrEmpty(secret)) return true; // not configured → open (dev only)
 
-        // Accept secret via header X-Traffy-Secret or query ?secret=
-        var headerVal = Request.Headers["X-Traffy-Secret"].FirstOrDefault();
-        var queryVal  = Request.Query["secret"].FirstOrDefault();
-        return headerVal == secret || queryVal == secret;
+    /// <summary>
+    /// เปรียบเทียบ token ใน path กับ secret ที่ตั้งค่าใน DB
+    /// ใช้ path segment (ไม่ใช่ query string) เพื่อกัน secret รั่วใน Serilog request log
+    /// </summary>
+    private async Task<bool> ValidateSecretAsync(string token)
+    {
+        var secret = await sysSettings.GetAsync("traffy.webhook_secret");
+
+        if (string.IsNullOrEmpty(secret))
+        {
+            logger.LogWarning("Traffy webhook: WebhookSecret not configured — request rejected. Set 'traffy.webhook_secret' in Admin → ตั้งค่าระบบ → Traffy Fondue");
+            return false;
+        }
+
+        // constant-time comparison ป้องกัน timing attack
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(token),
+            Encoding.UTF8.GetBytes(secret));
     }
 
     private static ExternalComplaintDto MapToDto(TraffyWebhookIssue i) => new(

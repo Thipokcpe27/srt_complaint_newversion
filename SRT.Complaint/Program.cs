@@ -2,6 +2,7 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using SRT.Complaint.Data;
@@ -24,11 +25,15 @@ try
               .WriteTo.File("logs/srt-complaint-.log", rollingInterval: RollingInterval.Day));
 
     // ──────────── Database ────────────
+    var connStr = builder.Configuration.GetConnectionString("DefaultConnection");
+
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+        options.UseSqlServer(connStr)
+               .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
     builder.Services.AddDbContext<CorruptionDbContext>(options =>
-        options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+        options.UseSqlServer(connStr)
+               .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
 
     // ──────────── Authentication & Authorization ────────────
     builder.Services.AddAuthentication(options =>
@@ -71,27 +76,28 @@ try
         options.AddPolicy("SuperAdmin", policy => policy.RequireRole("SuperAdmin"));
     });
 
-    // ──────────── Rate Limiting ────────────
+    // ──────────── Rate Limiting (อ่านจาก appsettings.json → Security.*) ────────────
     builder.Services.AddRateLimiter(options =>
     {
+        var sec = builder.Configuration.GetSection("Security");
         options.AddFixedWindowLimiter("SubmitPolicy", limiter =>
         {
-            limiter.PermitLimit = 5;
+            limiter.PermitLimit = sec.GetValue("SubmitLimitPerHour", 5);
             limiter.Window = TimeSpan.FromHours(1);
             limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
             limiter.QueueLimit = 0;
         });
         options.AddFixedWindowLimiter("TrackVerifyPolicy", limiter =>
         {
-            limiter.PermitLimit = 10;
-            limiter.Window = TimeSpan.FromMinutes(15);
+            limiter.PermitLimit = sec.GetValue("TrackVerifyLimitPerWindow", 10);
+            limiter.Window = TimeSpan.FromMinutes(sec.GetValue("TrackVerifyWindowMinutes", 15));
             limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
             limiter.QueueLimit = 0;
         });
         options.AddFixedWindowLimiter("LoginPolicy", limiter =>
         {
-            limiter.PermitLimit = 10;
-            limiter.Window = TimeSpan.FromMinutes(15);
+            limiter.PermitLimit = sec.GetValue("LoginLimitPerWindow", 10);
+            limiter.Window = TimeSpan.FromMinutes(sec.GetValue("LoginWindowMinutes", 15));
             limiter.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
             limiter.QueueLimit = 0;
         });
@@ -103,7 +109,8 @@ try
     builder.Services.AddDistributedMemoryCache();
     builder.Services.AddSession(options =>
     {
-        options.IdleTimeout = TimeSpan.FromMinutes(30);
+        options.IdleTimeout = TimeSpan.FromMinutes(
+            builder.Configuration.GetValue("Security:SessionTimeoutMinutes", 30));
         options.Cookie.HttpOnly = true;
         options.Cookie.IsEssential = true;
         options.Cookie.SameSite = SameSiteMode.Strict;
@@ -126,6 +133,8 @@ try
     builder.Services.AddScoped<IStatsService, StatsService>();
     builder.Services.AddScoped<ICorruptionStatsService, CorruptionStatsService>();
     builder.Services.AddScoped<IExternalSyncService, ExternalSyncService>();
+    builder.Services.AddScoped<IFaqService, FaqService>();
+    builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
     builder.Services.AddSingleton<IExternalSystemAdapter, SRT.Complaint.Services.Adapters.TraffyFonduAdapter>();
     builder.Services.AddSingleton<IExternalSystemAdapter, SRT.Complaint.Services.Adapters.DamrongdhammaAdapter>();
     builder.Services.AddScoped<ApiKeyAuthFilter>();
@@ -143,6 +152,10 @@ try
     builder.Services.AddHttpClient("Webhook", client =>
     {
         client.Timeout = TimeSpan.FromSeconds(15);
+    });
+    builder.Services.AddHttpClient("Sms", client =>
+    {
+        client.Timeout = TimeSpan.FromSeconds(10);
     });
 
     // ──────────── File Upload ────────────
@@ -186,9 +199,24 @@ try
         app.UseDeveloperExceptionPage();
     }
 
-    app.UseSerilogRequestLogging();
+    app.UseSerilogRequestLogging(opts =>
+    {
+        // ซ่อน token ที่อยู่ใน path ของ traffy-webhook
+        // /api/traffy-webhook/{token}/new-issue → /api/traffy-webhook/[redacted]/new-issue
+        opts.EnrichDiagnosticContext = (diagCtx, httpCtx) =>
+        {
+            var path = httpCtx.Request.Path.Value ?? "";
+            if (path.StartsWith("/api/traffy-webhook/", StringComparison.OrdinalIgnoreCase))
+            {
+                var segments = path.TrimStart('/').Split('/');
+                if (segments.Length >= 3) segments[2] = "[redacted]";
+                diagCtx.Set("RequestPath", "/" + string.Join("/", segments));
+            }
+        };
+    });
     app.UseHttpsRedirection();
     app.UseStaticFiles();
+    app.UseMiddleware<SRT.Complaint.Middleware.MaintenanceMiddleware>();
     app.UseRouting();
     app.UseRateLimiter();
     app.UseSession();

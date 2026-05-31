@@ -169,6 +169,34 @@
   - `OnPostSyncAsync` ใน QueueModel — บันทึก log + result banner
   - Admin/ExternalSync ยังอยู่ไว้ดู history log
 
+### Phase 20: ตั้งค่าระบบ (System Settings)
+- [x] Models/SystemSetting.cs — Key (PK), Value, Group, Label, Description, UpdatedAt, UpdatedById
+- [x] Services/ISystemSettingService.cs + SystemSettingService.cs — Get/GetGroup/SaveGroup
+- [x] AppDbContext.cs — DbSet<SystemSetting> + entity config
+- [x] Migration: AddSystemSettings + SyncSystemSettingsSnapshot — applied via direct SQL (app lock workaround)
+- [x] Pages/Admin/Settings.cshtml + .cs — Group 1: ข้อมูลองค์กร (org.name, org.name_short, org.address, org.phone, org.email, org.website)
+- [x] _StaffLayout.cshtml — เพิ่มเมนู "ตั้งค่าระบบ" ใต้ section ตั้งค่าระบบ
+- [x] Program.cs — AddScoped<ISystemSettingService, SystemSettingService>
+- [x] Group 2: การแจ้งเตือน (Email/SMS) — Tab notify, toggle Email/SMS, SMTP fields, SMS Gateway fields, NotificationService อ่าน DB ก่อน fallback config
+- [x] Group 3: ความปลอดภัย & Rate Limit — Tab security, Rate Limit (Submit/Login/TrackVerify), Session Timeout, Program.cs อ่านจาก appsettings.json, บันทึกเขียนกลับ appsettings.json
+- [x] Group 4: Maintenance Mode — MaintenanceMiddleware (cache 30s), Pages/Maintenance.cshtml (503), Tab maintenance: toggle+message+expected_back, ล้าง cache ทันทีเมื่อบันทึก
+- [x] Group 5: Traffy Fondue — Tab traffy, toggle enable, API URL/OrgId/Username/Password/WebhookSecret, TraffyFonduAdapter อ่าน DB แบบ lazy (cache 60s), InvalidateCache เมื่อบันทึก, token invalidate อัตโนมัติเมื่อ credentials เปลี่ยน
+
+### Phase 19: FAQ (คำถามที่พบบ่อย)
+- [x] Models/FaqItem.cs — Id, Question, Answer, Category, SortOrder, IsActive, CreatedAt, UpdatedAt, UpdatedById
+- [x] Services/IFaqService.cs + FaqService.cs
+- [x] AppDbContext.cs — DbSet<FaqItem> + entity config (SetNull FK → StaffUsers)
+- [x] Migration: AddFaqItems — applied (dbo.FaqItems)
+- [x] Pages/Admin/Faq.cshtml + .cs — จัดการ FAQ (CRUD)
+- [x] Pages/Public/Faq.cshtml + .cs — หน้า FAQ สาธารณะ
+
+### Security Fixes (2026-05-31)
+- [x] TraffyWebhookController.ValidateSecretAsync() — แก้ 4 ปัญหาพร้อมกัน:
+  - อ่าน secret จาก DB (ISystemSettingService key: traffy.webhook_secret) แทน IConfiguration → แก้ split-brain
+  - fail-open (return true เมื่อว่าง) → fail-closed (return false + LogWarning)
+  - ลบ query string ?secret= ออก รับแค่ header X-Traffy-Secret → กัน secret รั่วใน log
+  - เปลี่ยนจาก == เป็น CryptographicOperations.FixedTimeEquals → กัน timing attack
+
 ## Notes / Issues พบระหว่างทำ
 
 - ใช้ `@page "{id:int}"` สำหรับ CaseDetail ให้ URL เป็น `/Staff/CaseDetail/123`

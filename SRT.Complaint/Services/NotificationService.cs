@@ -5,18 +5,31 @@ using SRT.Complaint.Data;
 
 namespace SRT.Complaint.Services;
 
-public class NotificationService(AppDbContext db, IConfiguration config, ILogger<NotificationService> logger) : INotificationService
+public class NotificationService(
+    AppDbContext db,
+    IConfiguration config,
+    ISystemSettingService sysSettings,
+    IHttpClientFactory httpFactory,
+    ILogger<NotificationService> logger) : INotificationService
 {
-    public async Task SendAsync(string eventKey, string? toPhone, string? toEmail, Dictionary<string, string> placeholders, CancellationToken ct = default)
+    public async Task SendAsync(string eventKey, string? toPhone, string? toEmail,
+        Dictionary<string, string> placeholders, CancellationToken ct = default)
     {
         var template = await db.NotificationTemplates.FirstOrDefaultAsync(t => t.EventKey == eventKey, ct);
         if (template is null) return;
 
-        if (template.IsSmsEnabled && !string.IsNullOrWhiteSpace(toPhone) && !string.IsNullOrWhiteSpace(template.SmsBody))
-            await SendSmsAsync(toPhone, ResolvePlaceholders(template.SmsBody, placeholders), ct);
+        var notify = await sysSettings.GetGroupAsync("notify");
+        bool emailEnabled = notify.GetValueOrDefault("notify.email_enabled", "true") == "true";
+        bool smsEnabled   = notify.GetValueOrDefault("notify.sms_enabled",   "true") == "true";
 
-        if (template.IsEmailEnabled && !string.IsNullOrWhiteSpace(toEmail) && !string.IsNullOrWhiteSpace(template.EmailBody))
-            await SendEmailAsync(toEmail, ResolvePlaceholders(template.EmailSubject ?? eventKey, placeholders), ResolvePlaceholders(template.EmailBody, placeholders), ct);
+        if (smsEnabled && template.IsSmsEnabled && !string.IsNullOrWhiteSpace(toPhone) && !string.IsNullOrWhiteSpace(template.SmsBody))
+            await SendSmsAsync(toPhone, ResolvePlaceholders(template.SmsBody, placeholders), notify, ct);
+
+        if (emailEnabled && template.IsEmailEnabled && !string.IsNullOrWhiteSpace(toEmail) && !string.IsNullOrWhiteSpace(template.EmailBody))
+            await SendEmailAsync(toEmail,
+                ResolvePlaceholders(template.EmailSubject ?? eventKey, placeholders),
+                ResolvePlaceholders(template.EmailBody, placeholders),
+                notify, ct);
     }
 
     private static string ResolvePlaceholders(string template, Dictionary<string, string> values)
@@ -26,15 +39,24 @@ public class NotificationService(AppDbContext db, IConfiguration config, ILogger
         return template;
     }
 
-    private async Task SendSmsAsync(string phone, string body, CancellationToken ct)
+    // คืนค่า DB ถ้าไม่ว่าง, ไม่อย่างนั้น fallback ไป config
+    // GetValueOrDefault คืน "" เมื่อ key มีอยู่แต่ว่าง ซึ่ง ?? จะไม่ fallback
+    private static string? DbOrConfig(Dictionary<string, string> n, string dbKey, string? configVal)
+    {
+        var v = n.GetValueOrDefault(dbKey);
+        return string.IsNullOrEmpty(v) ? configVal : v;
+    }
+
+    private async Task SendSmsAsync(string phone, string body, Dictionary<string, string> n, CancellationToken ct)
     {
         try
         {
-            var gatewayUrl = config["Notifications:SmsGatewayUrl"];
-            var apiKey = config["Notifications:SmsApiKey"];
+            var gatewayUrl = DbOrConfig(n, "notify.sms_gateway_url", config["Notifications:SmsGatewayUrl"]);
+            var apiKey     = DbOrConfig(n, "notify.sms_api_key",     config["Notifications:SmsApiKey"]);
+
             if (string.IsNullOrEmpty(gatewayUrl)) return;
 
-            using var http = new HttpClient();
+            using var http = httpFactory.CreateClient("Sms");
             await http.PostAsJsonAsync(gatewayUrl, new { phone, message = body, apiKey }, ct);
         }
         catch (Exception ex)
@@ -43,19 +65,24 @@ public class NotificationService(AppDbContext db, IConfiguration config, ILogger
         }
     }
 
-    private async Task SendEmailAsync(string toAddress, string subject, string body, CancellationToken ct)
+    private async Task SendEmailAsync(string toAddress, string subject, string body,
+        Dictionary<string, string> n, CancellationToken ct)
     {
         try
         {
-            var host = config["Notifications:SmtpHost"];
+            var host = DbOrConfig(n, "notify.smtp_host", config["Notifications:SmtpHost"]);
             if (string.IsNullOrEmpty(host)) return;
 
-            var port = config.GetValue<int>("Notifications:SmtpPort", 587);
-            var user = config["Notifications:SmtpUser"] ?? "";
-            var pass = config["Notifications:SmtpPassword"] ?? "";
+            var portStr  = DbOrConfig(n, "notify.smtp_port", null);
+            var port     = int.TryParse(portStr, out var p) ? p
+                         : config.GetValue<int>("Notifications:SmtpPort", 587);
+            var user     = DbOrConfig(n, "notify.smtp_user",       config["Notifications:SmtpUser"])     ?? "";
+            var pass     = DbOrConfig(n, "notify.smtp_pass",       config["Notifications:SmtpPassword"]) ?? "";
+            var fromName = DbOrConfig(n, "notify.smtp_from_name",  config["Notifications:SmtpFromName"]) ?? "ระบบรับเรื่องร้องเรียน รฟท.";
+            var fromAddr = DbOrConfig(n, "notify.smtp_from_email", null) ?? user;
 
             var message = new MimeMessage();
-            message.From.Add(MailboxAddress.Parse(user));
+            message.From.Add(new MailboxAddress(fromName, fromAddr));
             message.To.Add(MailboxAddress.Parse(toAddress));
             message.Subject = subject;
             message.Body = new TextPart("html") { Text = body };

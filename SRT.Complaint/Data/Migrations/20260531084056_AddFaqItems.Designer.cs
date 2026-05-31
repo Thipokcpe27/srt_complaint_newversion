@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SRT.Complaint.Data;
 
@@ -11,9 +12,11 @@ using SRT.Complaint.Data;
 namespace SRT.Complaint.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260531084056_AddFaqItems")]
+    partial class AddFaqItems
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1350,45 +1353,6 @@ namespace SRT.Complaint.Data.Migrations
                     b.ToTable("StaffUsers", "dbo");
                 });
 
-            modelBuilder.Entity("SRT.Complaint.Models.SystemSetting", b =>
-                {
-                    b.Property<string>("Key")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("Group")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("Label")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int?>("UpdatedById")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Value")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("nvarchar(2000)");
-
-                    b.HasKey("Key");
-
-                    b.HasIndex("Group");
-
-                    b.HasIndex("UpdatedById");
-
-                    b.ToTable("SystemSettings", "dbo");
-                });
-
             modelBuilder.Entity("SRT.Complaint.Models.Webhook", b =>
                 {
                     b.Property<int>("Id")
@@ -1671,15 +1635,6 @@ namespace SRT.Complaint.Data.Migrations
                         .WithMany()
                         .HasForeignKey("UpdatedById")
                         .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("UpdatedBy");
-                });
-
-            modelBuilder.Entity("SRT.Complaint.Models.SystemSetting", b =>
-                {
-                    b.HasOne("SRT.Complaint.Models.StaffUser", "UpdatedBy")
-                        .WithMany()
-                        .HasForeignKey("UpdatedById");
 
                     b.Navigation("UpdatedBy");
                 });
