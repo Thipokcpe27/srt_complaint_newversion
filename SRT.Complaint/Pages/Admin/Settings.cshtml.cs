@@ -57,6 +57,9 @@ public class SettingsModel(
     [BindProperty] public string MaintenanceMessage  { get; set; } = string.Empty;
     [BindProperty] public string MaintenanceExpectedBack { get; set; } = string.Empty;
 
+    // ── Group: audit ──
+    [BindProperty] public int AuditRetentionDays { get; set; } = 90;
+
     // ── Group: security ──
     [BindProperty] public int SubmitLimitPerHour         { get; set; } = 5;
     [BindProperty] public int LoginLimitPerWindow        { get; set; } = 10;
@@ -74,7 +77,7 @@ public class SettingsModel(
         await LoadNotifyAsync();
         await LoadTraffyAsync();
         await LoadMaintenanceAsync();
-        LoadSecurity();
+        await LoadSecurityAsync();
     }
 
     // ── org ──
@@ -160,6 +163,10 @@ public class SettingsModel(
     // ── security ──
     public async Task<IActionResult> OnPostSecurityAsync()
     {
+        // บันทึก audit retention days ลง DB ทันที (ไม่ต้องรีสตาร์ท)
+        var retentionDays = Math.Max(90, AuditRetentionDays);
+        await settings.SaveGroupAsync("audit", new() { ["audit.retention_days"] = retentionDays.ToString() }, UserId());
+
         if (!await TryWriteAppSettingsAsync(new Dictionary<string, object>
         {
             ["Security:SubmitLimitPerHour"]        = SubmitLimitPerHour,
@@ -226,7 +233,7 @@ public class SettingsModel(
         MaintenanceExpectedBack = m.GetValueOrDefault("maintenance.expected_back", "");
     }
 
-    private void LoadSecurity()
+    private async Task LoadSecurityAsync()
     {
         var sec = config.GetSection("Security");
         SubmitLimitPerHour        = sec.GetValue("SubmitLimitPerHour",        5);
@@ -235,6 +242,9 @@ public class SettingsModel(
         TrackVerifyLimitPerWindow = sec.GetValue("TrackVerifyLimitPerWindow", 10);
         TrackVerifyWindowMinutes  = sec.GetValue("TrackVerifyWindowMinutes",  15);
         SessionTimeoutMinutes     = sec.GetValue("SessionTimeoutMinutes",     30);
+
+        var audit = await settings.GetGroupAsync("audit");
+        AuditRetentionDays = int.TryParse(audit.GetValueOrDefault("audit.retention_days", "90"), out var d) ? d : 90;
     }
 
     private async Task<bool> TryWriteAppSettingsAsync(Dictionary<string, object> updates)

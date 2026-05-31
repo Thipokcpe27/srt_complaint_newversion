@@ -21,7 +21,20 @@ public class AuditLogRetentionService(IServiceScopeFactory scopeFactory, IConfig
 
     private async Task PurgeOldLogsAsync(CancellationToken ct)
     {
-        var retentionDays = config.GetValue("AuditLog:RetentionDays", 90);
+        // อ่านจาก SystemSettings DB ก่อน fallback ไป appsettings.json
+        int retentionDays;
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var settingService = scope.ServiceProvider.GetRequiredService<ISystemSettingService>();
+            var raw = await settingService.GetAsync("audit.retention_days");
+            retentionDays = int.TryParse(raw, out var d) && d >= 90 ? d : config.GetValue("AuditLog:RetentionDays", 90);
+        }
+        catch
+        {
+            retentionDays = config.GetValue("AuditLog:RetentionDays", 90);
+        }
+
         if (retentionDays <= 0) return;
 
         var cutoff = DateTime.UtcNow.AddDays(-retentionDays);
