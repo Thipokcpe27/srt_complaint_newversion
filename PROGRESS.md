@@ -211,6 +211,17 @@
 
 **ครอบคลุมตาม พ.ร.บ.:** ตัวตนผู้ใช้ ✅ · วัน/เวลา ✅ · IP Address ✅ · Login/Logout/LoginFailed ✅ · UserAgent/Application ✅ · Outcome สำเร็จ/ล้มเหลว ✅ · Retention ≥90 วัน ✅
 
+### Phase 22: PDPA — ลบข้อมูลส่วนตัวผู้ร้องเรียน
+- [x] Models/Complaint.cs + CorruptionReport.cs — เพิ่ม PiiDeletedAt (DateTime?)
+- [x] Services/PdpaRetentionService.cs — BackgroundService ทุก 24 ชั่วโมง, anonymize PII ทั้ง Complaint + CorruptionReport, static RunNowAsync() สำหรับ manual trigger
+- [x] Pages/Admin/PdpaRetention.cshtml + .cs — แสดงสถิติรอลบ/ลบแล้ว, ตั้งค่า retention days, ปุ่ม "ลบทันที"
+- [x] SystemSettings: pdpa.complaint_retention_days (default 1825), pdpa.corruption_retention_days (default 1825)
+- [x] Program.cs — register PdpaRetentionService as HostedService
+- [x] _StaffLayout.cshtml — เพิ่มเมนู "PDPA / ข้อมูลส่วนตัว" ใต้ Audit Log
+- [x] Migration: AddComplaintPiiDeletedAt (AppDbContext) + AddCorruptionPiiDeletedAt (CorruptionDbContext) — applied
+
+**Logic ลบ:** ลบเฉพาะ ชื่อ/เบอร์/อีเมล/เลขบัตร (เรื่องและประวัติดำเนินงานยังอยู่) · นับจาก ClosedAt ถ้ามี ไม่งั้นจาก CreatedAt · ขั้นต่ำ 365 วัน
+
 ## Notes / Issues พบระหว่างทำ
 
 - ใช้ `@page "{id:int}"` สำหรับ CaseDetail ให้ URL เป็น `/Staff/CaseDetail/123`

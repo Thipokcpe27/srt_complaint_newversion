@@ -143,6 +143,7 @@ try
     builder.Services.AddHostedService<SlaBackgroundService>();
     builder.Services.AddHostedService<WebhookRetryService>();
     builder.Services.AddHostedService<AuditLogRetentionService>();
+    builder.Services.AddHostedService<PdpaRetentionService>();
 
     // ──────────── MVC & Razor Pages ────────────
     builder.Services.AddControllers();

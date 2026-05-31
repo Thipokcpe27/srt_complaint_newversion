@@ -32,6 +32,7 @@ public class CorruptionReport
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ClosedAt { get; set; }
+    public DateTime? PiiDeletedAt { get; set; }
 
     public ICollection<InvestigationLog> InvestigationLogs { get; set; } = new List<InvestigationLog>();
     public ICollection<DecryptionLog> DecryptionLogs { get; set; } = new List<DecryptionLog>();

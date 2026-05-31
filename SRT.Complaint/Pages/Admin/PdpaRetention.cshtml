@@ -1,0 +1,210 @@
+@page
+@model SRT.Complaint.Pages.Admin.PdpaRetentionModel
+@{
+    ViewData["Title"] = "จัดการข้อมูลส่วนตัว (PDPA)";
+    Layout = "_StaffLayout";
+}
+
+<div class="max-w-4xl mx-auto space-y-6">
+
+    <!-- Header -->
+    <div class="flex items-start justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">จัดการข้อมูลส่วนตัว (PDPA)</h1>
+            <p class="text-gray-500 text-sm mt-1">กำหนดระยะเวลาเก็บข้อมูลและลบข้อมูลผู้ร้องเรียนที่ครบกำหนด</p>
+        </div>
+        <form method="post" asp-page-handler="RunNow"
+              onsubmit="return confirm('ยืนยันการลบข้อมูลส่วนตัวที่ครบกำหนดทันที?')">
+            @Html.AntiForgeryToken()
+            <button type="submit"
+                    class="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-4 py-2.5 rounded-xl shadow transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                ลบข้อมูลทันที
+            </button>
+        </form>
+    </div>
+
+    @if (TempData["Success"] is string ok)
+    {
+        <div class="flex items-center gap-3 bg-green-50 border border-green-200 text-green-800 rounded-xl px-4 py-3 text-sm">
+            <svg class="w-4 h-4 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            @ok
+        </div>
+    }
+    @if (TempData["Error"] is string err)
+    {
+        <div class="flex items-center gap-3 bg-red-50 border border-red-200 text-red-800 rounded-xl px-4 py-3 text-sm">
+            <svg class="w-4 h-4 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            @err
+        </div>
+    }
+
+    <!-- PDPA notice -->
+    <div class="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-2xl px-5 py-4 text-sm text-blue-800">
+        <svg class="w-5 h-5 text-blue-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div class="space-y-1">
+            <p class="font-semibold">พ.ร.บ.คุ้มครองข้อมูลส่วนบุคคล (PDPA) 2562</p>
+            <p class="text-blue-700 leading-relaxed">
+                ระบบจะ <strong>ลบเฉพาะข้อมูลส่วนตัวผู้ร้อง</strong> (ชื่อ · เบอร์โทร · อีเมล · เลขบัตร) เมื่อครบกำหนด
+                — ตัวเรื่องร้องเรียน สถานะ และประวัติดำเนินงานจะยังคงอยู่ครบ
+            </p>
+        </div>
+    </div>
+
+    <!-- Stats cards -->
+    <div class="grid grid-cols-2 gap-4">
+        <div class="card p-5">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">เรื่องร้องเรียนทั่วไป</p>
+            <div class="flex items-end justify-between">
+                <div>
+                    <div class="flex items-baseline gap-1.5">
+                        <span class="text-3xl font-bold text-red-600">@Model.ComplaintPiiPendingCount.ToString("N0")</span>
+                        <span class="text-sm text-gray-500">รายการรอลบ</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">ลบแล้ว @Model.ComplaintPiiDeletedCount.ToString("N0") รายการ</p>
+                </div>
+                @if (Model.ComplaintPiiPendingCount > 0)
+                {
+                    <span class="text-[11px] bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-semibold">ครบกำหนด</span>
+                }
+                else
+                {
+                    <span class="text-[11px] bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-semibold">เป็นปัจจุบัน</span>
+                }
+            </div>
+        </div>
+
+        <div class="card p-5">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">รายงานทุจริต</p>
+            <div class="flex items-end justify-between">
+                <div>
+                    <div class="flex items-baseline gap-1.5">
+                        <span class="text-3xl font-bold @(Model.CorruptionPiiPendingCount > 0 ? "text-red-600" : "text-gray-800")">
+                            @Model.CorruptionPiiPendingCount.ToString("N0")
+                        </span>
+                        <span class="text-sm text-gray-500">รายการรอลบ</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-1">ลบแล้ว @Model.CorruptionPiiDeletedCount.ToString("N0") รายการ</p>
+                </div>
+                @if (Model.CorruptionPiiPendingCount > 0)
+                {
+                    <span class="text-[11px] bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-semibold">ครบกำหนด</span>
+                }
+                else
+                {
+                    <span class="text-[11px] bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-semibold">เป็นปัจจุบัน</span>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings form -->
+    <form method="post" asp-page-handler="Save">
+        @Html.AntiForgeryToken()
+        <div class="card p-0 overflow-hidden">
+            <div class="bg-gradient-to-r from-violet-700 to-violet-600 px-6 py-4 flex items-center gap-3">
+                <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <p class="text-violet-300 text-[11px] font-semibold uppercase tracking-wider">นโยบาย PDPA</p>
+                    <p class="text-white font-bold">ระยะเวลาเก็บข้อมูลส่วนตัว</p>
+                </div>
+            </div>
+            <div class="p-6 space-y-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                            เรื่องร้องเรียนทั่วไป (วัน)
+                        </label>
+                        <input asp-for="ComplaintRetentionDays" type="number" min="365" max="7300" class="form-input w-full" />
+                        <p class="text-xs text-gray-400 mt-1">
+                            นับจาก <strong>วันปิดเรื่อง</strong> (หรือวันยื่นถ้ายังไม่ปิด) · ขั้นต่ำ 365 วัน
+                        </p>
+                        <p class="text-xs text-gray-400">ค่าแนะนำ: 1825 วัน (5 ปี)</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">
+                            รายงานทุจริต (วัน)
+                        </label>
+                        <input asp-for="CorruptionRetentionDays" type="number" min="365" max="7300" class="form-input w-full" />
+                        <p class="text-xs text-gray-400 mt-1">
+                            นับจาก <strong>วันปิดเรื่อง</strong> (หรือวันยื่นถ้ายังไม่ปิด) · ขั้นต่ำ 365 วัน
+                        </p>
+                        <p class="text-xs text-gray-400">ค่าแนะนำ: 1825 วัน (5 ปี)</p>
+                    </div>
+                </div>
+
+                <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800 space-y-1">
+                    <p class="font-semibold">ข้อมูลที่จะถูกลบ:</p>
+                    <ul class="list-disc ml-4 space-y-0.5 text-amber-700">
+                        <li>ชื่อผู้ร้อง → แทนด้วย <code class="bg-amber-100 px-1 rounded">[ลบตาม PDPA]</code></li>
+                        <li>เบอร์โทรศัพท์, อีเมล, เลขบัตรประชาชน → ลบออก</li>
+                        <li>เรื่องทุจริต: ข้อมูลเข้ารหัสทั้งหมด → ลบออก</li>
+                    </ul>
+                    <p class="text-amber-600 mt-1">ระบบรันอัตโนมัติทุก 24 ชั่วโมง · กด "ลบข้อมูลทันที" เพื่อรันเดี๋ยวนี้</p>
+                </div>
+            </div>
+            <div class="px-6 pb-6 flex justify-end">
+                <button type="submit" class="btn-primary">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    บันทึกการตั้งค่า
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Recent purges table -->
+    @if (Model.RecentPurged.Any())
+    {
+        <div class="card p-0 overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100">
+                <h2 class="font-semibold text-gray-900 text-sm">ประวัติการลบข้อมูลล่าสุด</h2>
+            </div>
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 text-gray-500 text-xs">
+                        <th class="px-4 py-3 font-semibold text-left border-b border-gray-100">เลขที่อ้างอิง</th>
+                        <th class="px-4 py-3 font-semibold text-left border-b border-gray-100">ประเภท</th>
+                        <th class="px-4 py-3 font-semibold text-left border-b border-gray-100">ปิดเรื่อง</th>
+                        <th class="px-4 py-3 font-semibold text-left border-b border-gray-100">ลบ PII เมื่อ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Model.RecentPurged)
+                    {
+                        <tr class="border-b border-gray-50 last:border-b-0 hover:bg-gray-50/50">
+                            <td class="px-4 py-2.5 font-mono text-xs text-gray-700">@row.Ref</td>
+                            <td class="px-4 py-2.5 text-xs">
+                                <span class="@(row.Type == "เรื่องทุจริต" ? "bg-orange-100 text-orange-700" : "bg-blue-100 text-blue-700") text-[10px] px-2 py-0.5 rounded-full font-medium">
+                                    @row.Type
+                                </span>
+                            </td>
+                            <td class="px-4 py-2.5 text-xs text-gray-500">
+                                @(row.ClosedAt.HasValue ? row.ClosedAt.Value.ToLocalTime().ToString("dd/MM/yyyy") : "—")
+                            </td>
+                            <td class="px-4 py-2.5 text-xs text-gray-500">
+                                @row.PiiDeletedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+
+</div>

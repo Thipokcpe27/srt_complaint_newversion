@@ -31,6 +31,7 @@ public class Complaint
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ClosedAt { get; set; }
+    public DateTime? PiiDeletedAt { get; set; }
 
     public byte? SatisfactionScore { get; set; }
     public string? SatisfactionNote { get; set; }
