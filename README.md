@@ -12,6 +12,7 @@
 - [ฟีเจอร์หลัก](#ฟีเจอร์หลัก)
 - [หน้าทั้งหมดในระบบ](#หน้าทั้งหมดในระบบ)
 - [REST API](#rest-api)
+- [การย้ายระบบ (Security Migration)](#การย้ายระบบ-security-migration--ต้องทำบน-server-ด้วยตนเอง)
 - [ความปลอดภัย](#ความปลอดภัย)
 - [การตั้งค่า (Configuration)](#การตั้งค่า-configuration)
 - [การพัฒนาบนเครื่องท้องถิ่น](#การพัฒนาบนเครื่องท้องถิ่น)
@@ -44,7 +45,7 @@ Deploy: IIS Application บน GDCC
 | Frontend | Tailwind CSS + HTMX | Tailwind 3 |
 | Database | SQL Server + EF Core + Dapper | EF Core 9 |
 | Auth (Web) | ASP.NET Core Cookie Auth | — |
-| Auth (API) | JWT Bearer | — |
+| Auth (API) | API Key (X-API-Key Header) | — |
 | PDF Export | QuestPDF | 2026.5.0 |
 | Email | MailKit | 4.16.0 |
 | Excel Export | ClosedXML | 0.105.0 |
@@ -194,6 +195,7 @@ srt_complaint_newversion/
 | `/Admin/AuditLog` | บันทึกการใช้งาน (พ.ร.บ.คอมพิวเตอร์ 2560) |
 | `/Admin/ExternalSync` | ประวัติการดึงข้อมูลจากระบบภายนอก |
 | `/Admin/PdpaRetention` | จัดการ PDPA — ตั้งค่า retention + ลบข้อมูลส่วนตัว |
+| `/Admin/ReEncrypt` | **[One-time migration]** Re-encrypt ข้อมูล PII หลังเปลี่ยน Encryption Key — ลบหน้านี้หลังใช้งาน |
 
 ---
 
@@ -252,13 +254,95 @@ PATCH  /api/traffy-webhook/update-status  รับอัปเดตสถา�
 
 ---
 
+## การย้ายระบบ (Security Migration) — ต้องทำบน Server ด้วยตนเอง
+
+> ส่วนนี้เกิดจากการ security hardening ที่ทำใน commit ล่าสุด ทำ **ครั้งเดียว** เมื่อ deploy ครั้งแรกหลัง update นี้
+
+### ขั้นที่ 1 — สร้าง Encryption Key ใหม่
+
+รันบนเครื่อง **production server** หรือเครื่องที่มี PowerShell:
+
+```powershell
+[Convert]::ToBase64String((1..32 | % { [byte](Get-Random -Max 256) }))
+# ตัวอย่างผลลัพธ์: abc123...xyz== (32 bytes → Base64)
+# คัดลอกและเก็บไว้ในที่ปลอดภัย (Password Manager หรือ Vault)
+```
+
+> **สำคัญ:** key นี้ใช้เข้ารหัสข้อมูลตัวตนผู้แจ้งทุจริตและ temp password เจ้าหน้าที่  
+> ถ้าหาย key ไม่สามารถถอดรหัสข้อมูลเหล่านั้นได้อีก
+
+---
+
+### ขั้นที่ 2 — ตั้งค่า Encryption Key ใน IIS
+
+1. เปิด **IIS Manager** → เลือก Application `complaint`
+2. ดับเบิลคลิก **Configuration Editor**
+3. ไปที่ `system.webServer/aspNetCore` → คลิก `environmentVariables` → `[...]`
+4. เพิ่มตัวแปร:
+
+| Name | Value |
+|---|---|
+| `Encryption__Key` | `<key ที่สร้างในขั้นที่ 1>` |
+
+5. คลิก **Apply** → **Restart Application Pool**
+
+ถ้า key ไม่ถูกตั้ง แอปจะ **ไม่ start** และแสดง error:
+```
+Encryption:Key ยังไม่ได้ตั้งค่า — กำหนด Environment Variable 'Encryption__Key' ใน IIS ก่อน deploy
+```
+
+---
+
+### ขั้นที่ 3 — Re-encrypt ข้อมูลเดิมในฐานข้อมูล (ถ้ามี)
+
+ทำเฉพาะเมื่อ **มีข้อมูลอยู่แล้วในฐานข้อมูล** ที่ encrypted ด้วย key เดิม
+
+1. Login ด้วย SuperAdmin → ไปที่ `/Admin/ReEncrypt`
+2. ใส่ **Old Key** (key เดิมที่เคยใช้):
+   ```
+   lVcPxLPPSBs1SM7hSWJRLokH7BHIkZg9Q3HNegeDf+k=
+   ```
+3. กดปุ่ม **เริ่ม Re-encrypt** — ระบบจะ:
+   - ถอดรหัสข้อมูลทั้งหมดด้วย old key
+   - เข้ารหัสใหม่ด้วย key ที่ตั้งใน IIS (ขั้นที่ 2)
+4. ตรวจสอบผลลัพธ์ในหน้า — ต้องไม่มี `[ERROR]`
+5. **ลบหน้า `/Admin/ReEncrypt` ออกจาก codebase** (`Pages/Admin/ReEncrypt.cshtml` และ `.cshtml.cs`) แล้ว deploy ใหม่
+
+---
+
+### ขั้นที่ 4 — ล้าง Key เดิมออกจาก Git History (แนะนำ)
+
+key เดิมถูก commit ไว้ใน git history ก่อนหน้า ทำขั้นนี้เพื่อกำจัดออกจาก history ถาวร:
+
+```powershell
+# ติดตั้ง BFG Repo Cleaner (ต้องมี Java)
+# ดาวน์โหลด: https://rtyley.github.io/bfg-repo-cleaner/
+
+# สร้างไฟล์รายการ key ที่ต้องลบ
+Set-Content passwords.txt "lVcPxLPPSBs1SM7hSWJRLokH7BHIkZg9Q3HNegeDf+k="
+
+# รัน BFG
+java -jar bfg.jar --replace-text passwords.txt
+
+# ล้าง git objects
+git reflog expire --expire=now --all
+git gc --prune=now --aggressive
+
+# Force push (ได้รับการยืนยันแล้ว — single developer)
+git push --force
+```
+
+---
+
 ## ความปลอดภัย
 
 | มาตรการ | รายละเอียด |
 |---|---|
 | Password Hashing | BCrypt cost factor 12 |
 | Encryption | AES-256-CBC สำหรับข้อมูลผู้แจ้งทุจริต + Temp Password |
+| Encryption Key Management | Key ห้ามอยู่ใน source code — ต้องตั้งเป็น Environment Variable `Encryption__Key` ใน IIS เท่านั้น แอปจะไม่ start ถ้าไม่มี key |
 | Session Cookie | HttpOnly + Secure + SameSite=Strict |
+| Session Timeout | ค่าเริ่มต้น 30 นาที (ปรับได้ใน Admin/Settings) |
 | CSRF | Anti-forgery token ทุก Form |
 | XSS Prevention | HtmlSanitizer 9.0.892 ก่อนบันทึก HTML ลง DB |
 | Bot Protection | Cloudflare Turnstile บนทุก Form สำคัญ |
@@ -276,7 +360,9 @@ PATCH  /api/traffy-webhook/update-status  รับอัปเดตสถา�
 
 ## การตั้งค่า (Configuration)
 
-ไฟล์ `appsettings.json` (สำหรับ Development):
+ไฟล์ `appsettings.json` เก็บแค่ค่า non-sensitive — **Secret ทุกอย่างใส่ใน Environment Variables หรือ `appsettings.Development.local.json` เท่านั้น**
+
+`appsettings.json` (template — ห้ามใส่ key จริง):
 
 ```json
 {
@@ -284,12 +370,7 @@ PATCH  /api/traffy-webhook/update-status  รับอัปเดตสถา�
     "DefaultConnection": "Server=.\\SQLEXPRESS;Database=SRT_Complaint;Trusted_Connection=True;TrustServerCertificate=True"
   },
   "Encryption": {
-    "Key": "<Base64 ของ random 32 bytes — ดูวิธีสร้างด้านล่าง>"
-  },
-  "Jwt": {
-    "Secret": "<random string ยาว 64+ ตัวอักษร>",
-    "Issuer": "railway.co.th",
-    "ExpiryDays": 365
+    "Key": ""
   },
   "Notifications": {
     "SmsGatewayUrl": "https://sms-gateway.example.com/send",
@@ -327,7 +408,25 @@ PATCH  /api/traffy-webhook/update-status  รับอัปเดตสถา�
 }
 ```
 
-> **หมายเหตุ:** ค่าใน `Security` และ `AuditLog` สามารถเปลี่ยนได้ผ่าน Admin → ตั้งค่าระบบ โดยไม่ต้องแก้ไฟล์โดยตรง
+> ค่าใน `Security` และ `AuditLog` สามารถเปลี่ยนได้ผ่าน Admin → ตั้งค่าระบบ โดยไม่ต้องแก้ไฟล์โดยตรง
+
+### ตั้งค่า Secrets สำหรับ Development
+
+สร้างไฟล์ `SRT.Complaint/appsettings.Development.local.json` (อยู่ใน `.gitignore` แล้ว — **ห้าม commit**):
+
+```json
+{
+  "Encryption": {
+    "Key": "<Base64 32 bytes — สร้างด้วย PowerShell ด้านล่าง>"
+  },
+  "Notifications": {
+    "SmtpHost": "localhost",
+    "SmtpPort": 1025
+  }
+}
+```
+
+> ไฟล์นี้จะ override `appsettings.json` โดยอัตโนมัติเมื่อรัน Development — แอปจะไม่ start ถ้าไม่มี `Encryption:Key`
 
 ### สร้าง Encryption Key
 
@@ -363,24 +462,31 @@ PATCH  /api/traffy-webhook/update-status  รับอัปเดตสถา�
 git clone https://github.com/Thipokcpe27/srt_complaint_newversion.git
 cd srt_complaint_newversion
 
-# 2. กำหนด Connection String ใน appsettings.json
+# 2. สร้าง Encryption Key สำหรับ dev
+#    รันใน PowerShell แล้วคัดลอกผลลัพธ์ไปใส่ไฟล์ในขั้นต่อไป
+[Convert]::ToBase64String((1..32 | % { [byte](Get-Random -Max 256) }))
+
+# 3. สร้างไฟล์ local config (gitignored) พร้อมใส่ key จากขั้นที่ 2
+#    สร้าง SRT.Complaint/appsettings.Development.local.json:
+#    { "Encryption": { "Key": "<key จากขั้นที่ 2>" } }
+
+# 4. แก้ Connection String ใน appsettings.json
 #    แก้ Server= ให้ตรงกับเครื่องตัวเอง
 
-# 3. Restore dependencies (.NET + npm)
+# 5. Restore dependencies (.NET + npm)
 dotnet restore
 cd SRT.Complaint && npm install && cd ..
 
-# 4. Migrate ฐานข้อมูล
+# 6. Migrate ฐานข้อมูล
 dotnet ef database update --project SRT.Complaint --context AppDbContext
 
-# 5. Run
+# 7. Run
 dotnet run --project SRT.Complaint
 ```
 
 แอปจะรันที่ `https://localhost:5001` (หรือ port ที่ระบุใน `launchSettings.json`)
 
-> **หมายเหตุ:** บัญชี SuperAdmin เริ่มต้นจะถูกสร้างอัตโนมัติเมื่อรันครั้งแรก  
-> EmployeeCode: `0000001` / Password: `Admin@1234` — **ต้องเปลี่ยนรหัสผ่านทันที**
+> **บัญชี SuperAdmin เริ่มต้น:** สร้างอัตโนมัติเมื่อรันครั้งแรก — รหัสผ่านชั่วคราว **สุ่มใหม่ทุกครั้ง** และแสดงใน console log ครั้งเดียว ระบบบังคับเปลี่ยนรหัสผ่านทันทีหลัง login
 
 ---
 
@@ -526,8 +632,7 @@ icacls "C:\inetpub\wwwroot\complaint\logs" /grant "IIS AppPool\SRTComplaint:(OI)
 |---|---|---|
 | `ASPNETCORE_ENVIRONMENT` | `Production` | บังคับ |
 | `ConnectionStrings__DefaultConnection` | `Server=...;Database=SRT_Complaint;...` | Connection string จริง |
-| `Encryption__Key` | `<Base64 32 bytes>` | สร้างด้วย PowerShell |
-| `Jwt__Secret` | `<random 64+ chars>` | |
+| `Encryption__Key` | `<Base64 32 bytes>` | **บังคับ** — สร้างด้วย PowerShell, แอปจะไม่ start ถ้าไม่มี |
 | `Notifications__SmtpHost` | `smtp.railway.co.th` | |
 | `Notifications__SmtpUser` | `noreply@railway.co.th` | |
 | `Notifications__SmtpPassword` | `<SMTP password>` | |
@@ -653,12 +758,14 @@ dotnet ef migrations script --project SRT.Complaint --context AppDbContext -o mi
 ### ขั้นที่ 12 — ทดสอบหลัง Deploy
 
 ```
-[ ] เปิดหน้า https://www.railway.co.th/complaint/ — โหลดได้ปกติ
+[ ] เปิดหน้า https://www.railway.co.th/complaint/ — โหลดได้ปกติ (ถ้า startup fail ให้ดู stdout log ทันที)
+[ ] ตรวจ stdout log — ต้องไม่มี "Encryption:Key ยังไม่ได้ตั้งค่า" error
 [ ] ทดสอบยื่นเรื่องร้องเรียนทั่วไป — รับเลขอ้างอิง
 [ ] ทดสอบติดตามเรื่อง — ดูสถานะได้
 [ ] ทดสอบยื่นเรื่องทุจริต — ข้อมูลถูก mask ในหน้ารายการ
-[ ] Login เจ้าหน้าที่ด้วย EmployeeCode 0000001 — ระบบบังคับเปลี่ยนรหัสผ่าน
-[ ] เปลี่ยนรหัสผ่าน Admin — Login ใหม่ได้
+[ ] ถ้า deploy ครั้งแรก: อ่านรหัสผ่าน SuperAdmin จาก stdout log แล้ว Login ด้วย EmployeeCode 0000001
+[ ] ระบบบังคับเปลี่ยนรหัสผ่าน — เปลี่ยนเสร็จแล้ว Login ใหม่ได้
+[ ] ถ้ามีข้อมูลเดิมในฐานข้อมูล: เปิด /Admin/ReEncrypt ใส่ Old Key แล้วกด Run — จากนั้นลบหน้านี้ออก
 [ ] ทดสอบ HTTPS redirect — HTTP → HTTPS อัตโนมัติ
 [ ] ตรวจสอบ Logs ที่ C:\inetpub\wwwroot\complaint\logs\
 [ ] ตรวจสอบ Turnstile Widget แสดงบนหน้า Submit และ Login
@@ -1083,10 +1190,15 @@ dotnet ef database update PreviousMigrationName \
 | รายการ | ค่า |
 |---|---|
 | Employee Code | `0000001` |
-| Password | `Admin@1234` |
+| Password | **สุ่มสร้างทุกครั้ง** — อ่านจาก stdout log เมื่อ start ครั้งแรก |
 | Role | `SuperAdmin` |
 
-> **สำคัญมาก:** เปลี่ยนรหัสผ่านทันทีหลัง login ครั้งแรก ระบบจะบังคับเปลี่ยนอัตโนมัติ
+ตัวอย่าง log ที่จะแสดง:
+```
+[WRN] ⚠️  SuperAdmin สร้างครั้งแรก — รหัสผ่านชั่วคราว (ใช้ได้ครั้งเดียว): xK9mP2...== — เปลี่ยนทันทีหลัง login
+```
+
+> ระบบบังคับเปลี่ยนรหัสผ่านทันทีหลัง login ครั้งแรก — รหัสผ่านชั่วคราวใช้ได้ครั้งเดียวเท่านั้น
 
 ---
 

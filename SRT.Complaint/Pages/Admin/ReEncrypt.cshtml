@@ -1,0 +1,62 @@
+@page
+@model SRT.Complaint.Pages.Admin.ReEncryptModel
+@{
+    ViewData["Title"] = "Re-encrypt ข้อมูล PII";
+    Layout = "_StaffLayout";
+}
+
+<div class="max-w-2xl mx-auto space-y-6">
+
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Re-encrypt ข้อมูล PII</h1>
+        <p class="text-gray-500 text-sm mt-1">ใช้เปลี่ยน encryption key — รันครั้งเดียวหลังเปลี่ยน <code>Encryption:Key</code> ใหม่</p>
+    </div>
+
+    @if (Model.Done)
+    {
+        <div class="bg-green-50 border border-green-200 rounded-xl p-4 space-y-1">
+            <p class="font-semibold text-green-800">Re-encryption เสร็จสิ้น</p>
+            @foreach (var line in Model.Results)
+            {
+                <p class="text-sm @(line.StartsWith("[ERROR]") ? "text-red-600" : "text-green-700")">@line</p>
+            }
+        </div>
+        <p class="text-sm text-gray-500">ลบหน้านี้ออกจาก codebase ได้เลยหลังยืนยันว่าข้อมูลถูกต้อง</p>
+    }
+    else
+    {
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 space-y-1">
+            <p class="font-semibold">ข้อมูลที่จะ re-encrypt</p>
+            <p>StaffUsers (TempPasswordEncrypted): <strong>@Model.StaffCount รายการ</strong></p>
+            <p>CorruptionReports (PII ทั้งหมด): <strong>@Model.CorruptionCount รายการ</strong></p>
+        </div>
+
+        <div class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">
+            <p class="font-semibold">คำเตือน</p>
+            <p>action นี้แก้ไขข้อมูลในฐานข้อมูลโดยตรง backup ก่อนรันเสมอ</p>
+        </div>
+
+        <form method="post" onsubmit="return confirm('ยืนยันการ re-encrypt ข้อมูล PII ทั้งหมด?')">
+            @Html.AntiForgeryToken()
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">
+                        Old Encryption Key (Base64)
+                        <span class="text-gray-400 font-normal">— key เดิมที่ใช้ encrypt ข้อมูลอยู่</span>
+                    </label>
+                    <input asp-for="OldKeyB64"
+                           type="text"
+                           class="w-full font-mono text-sm border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                           placeholder="Base64-encoded 32-byte key" />
+                    <span asp-validation-for="OldKeyB64" class="text-red-500 text-xs mt-1 block"></span>
+                </div>
+
+                <button type="submit"
+                        class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2.5 rounded-xl shadow transition">
+                    เริ่ม Re-encrypt ข้อมูลทั้งหมด
+                </button>
+            </div>
+        </form>
+    }
+
+</div>

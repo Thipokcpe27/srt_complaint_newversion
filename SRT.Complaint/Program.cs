@@ -1,9 +1,7 @@
-using System.Text;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Security.Cryptography;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.IdentityModel.Tokens;
 using Serilog;
 using SRT.Complaint.Data;
 using SRT.Complaint.Filters;
@@ -18,6 +16,10 @@ Log.Logger = new LoggerConfiguration()
 try
 {
     var builder = WebApplication.CreateBuilder(args);
+
+    builder.Configuration.AddJsonFile(
+        $"appsettings.{builder.Environment.EnvironmentName}.local.json",
+        optional: true, reloadOnChange: true);
 
     builder.Host.UseSerilog((ctx, services, config) =>
         config.ReadFrom.Configuration(ctx.Configuration)
@@ -50,21 +52,9 @@ try
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
         options.Cookie.SameSite = SameSiteMode.Strict;
-        options.ExpireTimeSpan = TimeSpan.FromHours(1);
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(
+            builder.Configuration.GetValue("Security:SessionTimeoutMinutes", 30));
         options.SlidingExpiration = true;
-    })
-    .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
-    {
-        var jwtSecret = builder.Configuration["Jwt:Secret"] ?? string.Empty;
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = false,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
-        };
     });
 
     builder.Services.AddAuthorization(options =>
@@ -168,7 +158,14 @@ try
 
     var app = builder.Build();
 
+    // ──────────── Startup validation ────────────
+    var encryptionKey = builder.Configuration["Encryption:Key"];
+    if (string.IsNullOrWhiteSpace(encryptionKey))
+        throw new InvalidOperationException(
+            "Encryption:Key ยังไม่ได้ตั้งค่า — กำหนด Environment Variable 'Encryption__Key' ใน IIS ก่อน deploy");
+
     // ──────────── Seed SuperAdmin (first-run only) ────────────
+    var tempAdminPassword = Convert.ToBase64String(RandomNumberGenerator.GetBytes(12));
     using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -179,14 +176,14 @@ try
                 EmployeeCode = "0000001",
                 FullName = "Super Administrator",
                 Email = "admin@railway.co.th",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Admin@1234", 12),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(tempAdminPassword, 12),
                 Role = "SuperAdmin",
                 IsActive = true,
                 MustChangePassword = true,
                 CreatedAt = DateTime.UtcNow
             });
             db.SaveChanges();
-            Log.Information("Seeded default SuperAdmin (EmployeeCode=0000001)");
+            Log.Warning("⚠️  SuperAdmin สร้างครั้งแรก — รหัสผ่านชั่วคราว (ใช้ได้ครั้งเดียว): {Pass} — เปลี่ยนทันทีหลัง login", tempAdminPassword);
         }
     }
 
