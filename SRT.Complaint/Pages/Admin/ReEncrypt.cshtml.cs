@@ -27,8 +27,8 @@ public class ReEncryptModel(
 
     public async Task OnGetAsync()
     {
-        StaffCount = await appDb.StaffUsers.CountAsync(u => u.TempPasswordEncrypted != null && u.TempPasswordEncrypted.Length > 0);
-        CorruptionCount = await corrDb.Reports.CountAsync(r => r.ReporterNameEncrypted.Length > 0);
+        StaffCount = await appDb.StaffUsers.CountAsync(u => u.TempPasswordEncrypted != null);
+        CorruptionCount = await corrDb.Reports.CountAsync();
     }
 
     public async Task<IActionResult> OnPostAsync()
@@ -51,7 +51,7 @@ public class ReEncryptModel(
 
         // ── StaffUsers.TempPasswordEncrypted ──
         var staffRows = await appDb.StaffUsers
-            .Where(u => u.TempPasswordEncrypted != null && u.TempPasswordEncrypted.Length > 0)
+            .Where(u => u.TempPasswordEncrypted != null)
             .ToListAsync();
 
         var staffOk = 0;
@@ -72,9 +72,7 @@ public class ReEncryptModel(
         Results.Add($"StaffUsers: {staffOk}/{staffRows.Count} รายการ สำเร็จ");
 
         // ── CorruptionReports PII ──
-        var corrRows = await corrDb.Reports
-            .Where(r => r.ReporterNameEncrypted.Length > 0)
-            .ToListAsync();
+        var corrRows = await corrDb.Reports.ToListAsync();
 
         var corrOk = 0;
         foreach (var report in corrRows)
