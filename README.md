@@ -102,8 +102,10 @@ srt_complaint_newversion/
 ### ประชาชน (Public)
 - ยื่นเรื่องร้องเรียนทั่วไป พร้อมแนบไฟล์สูงสุด 5 ไฟล์ (JPG, PNG, PDF, DOC, DOCX, ≤10 MB/ไฟล์)
 - แจ้งเบาะแสทุจริต — ข้อมูลผู้แจ้งเข้ารหัส AES-256 ทันทีก่อนบันทึก
-- ติดตามสถานะเรื่องด้วยเลขอ้างอิง + เบอร์โทร 4 หลักท้าย
+- ติดตามสถานะเรื่องด้วยเลขอ้างอิง + เบอร์โทร 4 หลักท้าย พร้อม Timeline และ Status Stepper
 - รับอีเมล/SMS แจ้งผลทุกขั้นตอน
+- คำถามที่พบบ่อย (FAQ) — หน้าสาธารณะแยกต่างหาก
+- PDPA Cookie Consent Banner + Terms Modal ก่อนยื่นเรื่อง
 
 ### เจ้าหน้าที่ (Staff)
 - Dashboard แสดง Queue เรื่องที่รอดำเนินการ
@@ -123,7 +125,11 @@ srt_complaint_newversion/
 - จัดการ API Keys สำหรับระบบภายนอก
 - กำหนด Webhook endpoints
 - แก้ไขเนื้อหาหน้าเว็บ (Terms, Content Blocks)
-- ดู Audit Log และ API Request Log
+- จัดการ FAQ (เพิ่ม/แก้ไข/เรียงลำดับ/เปิดปิด)
+- **ตั้งค่าระบบ (System Settings)** — ข้อมูลองค์กร, การแจ้งเตือน Email/SMS, Rate Limit, Session, Traffy Fondue, Maintenance Mode
+- **Maintenance Mode** — เปิด/ปิดหน้าปิดปรับปรุงทันที พร้อมข้อความและเวลาคาดการณ์
+- ดู Audit Log พร้อม filter + export Excel — รองรับ **พ.ร.บ.คอมพิวเตอร์ 2560** (บันทึก Login/Logout/Failed, IP, UserAgent, Outcome)
+- **PDPA Retention** — กำหนดอายุข้อมูลส่วนตัวผู้ร้อง ลบ PII อัตโนมัติเมื่อครบกำหนด
 
 ### API (External)
 - REST API พร้อม API Key authentication
@@ -145,9 +151,11 @@ srt_complaint_newversion/
 |---|---|
 | `/` | หน้าแรก |
 | `/Public/Submit` | ยื่นเรื่องร้องเรียนทั่วไป |
-| `/Public/Track` | ติดตามเรื่องร้องเรียน |
+| `/Public/Track` | ติดตามเรื่องร้องเรียน (Timeline + Stepper) |
 | `/Public/SubmitCorruption` | แจ้งเบาะแสทุจริต |
 | `/Public/CorruptionSubmitted` | ยืนยันการแจ้งเบาะแสสำเร็จ |
+| `/Public/Faq` | คำถามที่พบบ่อย |
+| `/Maintenance` | หน้าปิดปรับปรุง (แสดงอัตโนมัติเมื่อเปิด Maintenance Mode) |
 
 ### Staff (ต้อง Login — Role: GeneralOfficer, SuperAdmin)
 | URL | คำอธิบาย |
@@ -172,17 +180,20 @@ srt_complaint_newversion/
 |---|---|
 | `/Admin/Dashboard` | Dashboard ภาพรวมทั้งระบบ |
 | `/Admin/Users` | จัดการผู้ใช้งาน |
-| `/Admin/Categories` | จัดการประเภทเรื่อง |
+| `/Admin/Categories` | จัดการประเภทเรื่องและหัวข้อย่อย |
 | `/Admin/SlaSettings` | กำหนด SLA |
 | `/Admin/Terms` | แก้ไขข้อตกลงและเงื่อนไข |
 | `/Admin/HomeContent` | แก้ไขเนื้อหาหน้าแรก |
+| `/Admin/Faq` | จัดการคำถามที่พบบ่อย (CRUD + เรียงลำดับ) |
 | `/Admin/Notifications` | ตั้งค่าการแจ้งเตือน |
+| `/Admin/Settings` | ตั้งค่าระบบ (องค์กร / แจ้งเตือน / ความปลอดภัย / Traffy / Maintenance) |
 | `/Admin/ApiKeys` | จัดการ API Keys |
 | `/Admin/ApiKeyUsage` | ดู API Usage Log |
 | `/Admin/Webhooks` | จัดการ Webhook |
 | `/Admin/Reports` | รายงานสถิติ |
-| `/Admin/AuditLog` | บันทึกการใช้งาน |
+| `/Admin/AuditLog` | บันทึกการใช้งาน (พ.ร.บ.คอมพิวเตอร์ 2560) |
 | `/Admin/ExternalSync` | ประวัติการดึงข้อมูลจากระบบภายนอก |
+| `/Admin/PdpaRetention` | จัดการ PDPA — ตั้งค่า retention + ลบข้อมูลส่วนตัว |
 
 ---
 
@@ -246,16 +257,20 @@ PATCH  /api/traffy-webhook/update-status  รับอัปเดตสถา�
 | มาตรการ | รายละเอียด |
 |---|---|
 | Password Hashing | BCrypt cost factor 12 |
-| Encryption | AES-256-CBC สำหรับข้อมูลผู้แจ้งทุจริต |
+| Encryption | AES-256-CBC สำหรับข้อมูลผู้แจ้งทุจริต + Temp Password |
 | Session Cookie | HttpOnly + Secure + SameSite=Strict |
 | CSRF | Anti-forgery token ทุก Form |
 | XSS Prevention | HtmlSanitizer 9.0.892 ก่อนบันทึก HTML ลง DB |
 | Bot Protection | Cloudflare Turnstile บนทุก Form สำคัญ |
-| Rate Limiting | Submit: 5 ครั้ง/ชม., Login: 10 ครั้ง/15 นาที, Track: 10 ครั้ง/15 นาที |
+| Rate Limiting | Submit: 5 ครั้ง/ชม., Login: 10 ครั้ง/15 นาที, Track: 10 ครั้ง/15 นาที (ปรับได้ใน Admin/Settings) |
 | IDOR Protection | ตรวจสิทธิ์การแก้ไขเรื่องทุก handler |
 | File Upload | ตรวจ extension whitelist + ขนาดไม่เกิน 10 MB |
 | API Key | Hash ก่อนเก็บ + ตรวจ IP Whitelist + Scope |
 | HSTS | เปิดใช้งานใน Production |
+| **พ.ร.บ.คอมพิวเตอร์ 2560** | Audit Log บันทึก Login/Logout/LoginFailed พร้อม IP, UserAgent, Outcome — เก็บ ≥90 วัน (ปรับได้) |
+| **PDPA 2562** | PdpaRetentionService ลบ PII อัตโนมัติเมื่อครบกำหนด (default 5 ปีหลังปิดเรื่อง) — ตัวเรื่องยังคงอยู่ |
+| Webhook Security | HMAC-SHA256 signing + FixedTimeEquals (ป้องกัน timing attack) |
+| Traffy Webhook | Validate secret จาก DB เท่านั้น (header X-Traffy-Secret) — ไม่รับ query string |
 
 ---
 
@@ -297,9 +312,22 @@ PATCH  /api/traffy-webhook/update-status  รับอัปเดตสถา�
     "Password": "<org password>",
     "OrgId": "<รหัส org ของ รฟท. จาก NECTEC>",
     "WebhookSecret": "<random secret — ส่งให้ NECTEC เพื่อลงทะเบียน webhook>"
+  },
+  "AuditLog": {
+    "RetentionDays": 90
+  },
+  "Security": {
+    "SubmitLimitPerHour": 5,
+    "LoginLimitPerWindow": 10,
+    "LoginWindowMinutes": 15,
+    "TrackVerifyLimitPerWindow": 10,
+    "TrackVerifyWindowMinutes": 15,
+    "SessionTimeoutMinutes": 30
   }
 }
 ```
+
+> **หมายเหตุ:** ค่าใน `Security` และ `AuditLog` สามารถเปลี่ยนได้ผ่าน Admin → ตั้งค่าระบบ โดยไม่ต้องแก้ไฟล์โดยตรง
 
 ### สร้าง Encryption Key
 
@@ -1015,18 +1043,36 @@ dotnet ef database update PreviousMigrationName \
 ```
 
 ### รายการ Migrations ทั้งหมด
+
+#### AppDbContext (dbo.*)
 | Migration | รายละเอียด |
 |---|---|
-| `AddMustChangePassword` | เพิ่มฟิลด์บังคับเปลี่ยนรหัสผ่านครั้งแรก |
-| `AddTempPasswordExpiry` | เพิ่มวันหมดอายุรหัสผ่านชั่วคราว |
-| `AddTempPasswordEncrypted` | เพิ่มการเก็บรหัสผ่านชั่วคราวแบบ encrypted |
-| `AddSubCategories` | เพิ่มตารางหัวข้อย่อยเรื่องร้องเรียน |
-| `MakeNoteAuthorNullable` | แก้ไข author ของ Note เป็น nullable |
-| `AddComplaintSeq` | เพิ่ม sequence สำหรับเลขอ้างอิงเรื่องร้องเรียน |
-| `AddReporterIdCard` | เพิ่มฟิลด์เลขบัตรประชาชนผู้แจ้ง |
-| `AddComplaintTerms` | เพิ่มตารางข้อตกลงและเงื่อนไข |
-| `AddContentBlocks` | เพิ่มตารางเนื้อหาหน้าแรก |
-| `Corruption/AddCorruptionSeq` | เพิ่ม sequence สำหรับเรื่องทุจริต |
+| `InitialCreate` | Schema เริ่มต้น (Complaints, StaffUsers, Categories, SLA, AuditLogs, ApiKeys ฯลฯ) |
+| `AddMustChangePassword` | บังคับเปลี่ยนรหัสผ่านครั้งแรก |
+| `AddTempPasswordExpiry` | วันหมดอายุรหัสผ่านชั่วคราว |
+| `AddTempPasswordEncrypted` | เก็บรหัสผ่านชั่วคราวแบบ AES-256 encrypted |
+| `AddSubCategories` | ตารางหัวข้อย่อยเรื่องร้องเรียน |
+| `MakeNoteAuthorNullable` | Author ของ ComplaintNote เป็น nullable (system notes) |
+| `AddComplaintSeq` | SQL SEQUENCE สำหรับเลขอ้างอิง (SRT-COMPL-YYYY-NNNN) |
+| `AddReporterIdCard` | เลขบัตรประชาชนผู้แจ้ง (optional) |
+| `AddComplaintTerms` | ตารางข้อตกลงและเงื่อนไข (PDPA Terms) |
+| `AddContentBlocks` | ตารางเนื้อหาหน้าแรก |
+| `AddExternalSync` | ตาราง ExternalSyncLog สำหรับ Traffy/ดำรงธรรม |
+| `AddComplaintChannel` | Channel field (Web/Traffy/Damrongdhamma/Staff) |
+| `SeedSubCategories` | Seed ข้อมูลหัวข้อย่อยเริ่มต้น |
+| `AddFaqItems` | ตาราง FaqItems |
+| `SeedFaqItems` | Seed FAQ เริ่มต้น |
+| `AddSystemSettings` | ตาราง SystemSettings (key-value config) |
+| `SyncSystemSettingsSnapshot` | Sync model snapshot หลัง SystemSettings |
+| `AddAuditLogFields` | UserAgent + Outcome ใน AuditLogs (พ.ร.บ.คอมพิวเตอร์ 2560) |
+| `AddComplaintPiiDeletedAt` | PiiDeletedAt ใน Complaints (PDPA retention) |
+
+#### CorruptionDbContext (corruption.*)
+| Migration | รายละเอียด |
+|---|---|
+| `InitialCreate` | Schema เริ่มต้น (Reports, InvestigationLogs, DecryptionLogs) |
+| `AddCorruptionSeq` | SQL SEQUENCE สำหรับเลขอ้างอิงทุจริต (SRT-CORUPT-YYYY-NNNN) |
+| `AddCorruptionPiiDeletedAt` | PiiDeletedAt ใน Reports (PDPA retention) |
 
 ---
 
