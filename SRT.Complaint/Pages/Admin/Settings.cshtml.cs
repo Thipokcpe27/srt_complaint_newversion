@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Caching.Memory;
 using SRT.Complaint.Services;
 using SRT.Complaint.Services.Adapters;
+#nullable enable
 
 namespace SRT.Complaint.Pages.Admin;
 
@@ -21,7 +22,8 @@ public class SettingsModel(
     IConfiguration config,
     IWebHostEnvironment env,
     IMemoryCache cache,
-    ILogger<SettingsModel> logger) : PageModel
+    ILogger<SettingsModel> logger,
+    IAuditService auditService) : PageModel
 {
     // ── Group: org ──
     [BindProperty] public string OrgName      { get; set; } = string.Empty;
@@ -92,6 +94,8 @@ public class SettingsModel(
             ["org.email"]      = OrgEmail.Trim(),
             ["org.website"]    = OrgWebsite.Trim(),
         }, UserId());
+        await auditService.LogAsync("UpdateOrgSettings", UserId(), GetActorCode(),
+            "SystemSetting", "org", new { name = OrgName.Trim() }, GetIp(), outcome: "Success");
         TempData["Success"] = "บันทึกข้อมูลองค์กรเรียบร้อยแล้ว";
         return RedirectToPage(new { tab = "org" });
     }
@@ -115,6 +119,9 @@ public class SettingsModel(
         if (!string.IsNullOrEmpty(SmsApiKey)) values["notify.sms_api_key"]  = SmsApiKey;
 
         await settings.SaveGroupAsync("notify", values, UserId());
+        await auditService.LogAsync("UpdateNotifySettings", UserId(), GetActorCode(),
+            "SystemSetting", "notify",
+            new { emailEnabled = EmailEnabled, smsEnabled = SmsEnabled }, GetIp(), outcome: "Success");
         TempData["Success"] = "บันทึกการตั้งค่าแจ้งเตือนเรียบร้อยแล้ว";
         return RedirectToPage(new { tab = "notify" });
     }
@@ -137,6 +144,9 @@ public class SettingsModel(
         // ล้าง cache ทำให้ adapter โหลด settings ใหม่ทันที
         TraffyFonduAdapter.InvalidateCache(cache);
 
+        await auditService.LogAsync("UpdateTraffySettings", UserId(), GetActorCode(),
+            "SystemSetting", "traffy",
+            new { enabled = TraffyEnabled, orgId = TraffyOrgId.Trim() }, GetIp(), outcome: "Success");
         TempData["Success"] = "บันทึกการตั้งค่า Traffy Fondue เรียบร้อยแล้ว";
         return RedirectToPage(new { tab = "traffy" });
     }
@@ -154,6 +164,9 @@ public class SettingsModel(
         // ล้าง cache ทันทีเพื่อให้มีผลเร็ว
         cache.Remove("sys:maintenance.enabled");
 
+        await auditService.LogAsync("UpdateMaintenanceMode", UserId(), GetActorCode(),
+            "SystemSetting", "maintenance",
+            new { enabled = MaintenanceEnabled, message = MaintenanceMessage.Trim() }, GetIp(), outcome: "Success");
         TempData["Success"] = MaintenanceEnabled
             ? "⚠️ เปิด Maintenance Mode แล้ว — ประชาชนจะเห็นหน้าปิดปรับปรุง"
             : "✅ ปิด Maintenance Mode แล้ว — ระบบกลับมาให้บริการปกติ";
@@ -183,6 +196,11 @@ public class SettingsModel(
         {
             TempData["Success"] = "บันทึกการตั้งค่าความปลอดภัยเรียบร้อยแล้ว — มีผลหลังรีสตาร์ทแอปพลิเคชัน";
         }
+        await auditService.LogAsync("UpdateSecuritySettings", UserId(), GetActorCode(),
+            "SystemSetting", "security",
+            new { submitLimitPerHour = SubmitLimitPerHour, loginLimitPerWindow = LoginLimitPerWindow,
+                  loginWindowMinutes = LoginWindowMinutes, auditRetentionDays = retentionDays,
+                  sessionTimeoutMinutes = SessionTimeoutMinutes }, GetIp(), outcome: "Success");
         return RedirectToPage(new { tab = "security" });
     }
 
@@ -297,5 +315,7 @@ public class SettingsModel(
         SetNestedValue(nested, keys[1..], value);
     }
 
-    private int UserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private int    UserId()       => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private string GetActorCode() => User.FindFirstValue("EmployeeCode") ?? "";
+    private string GetIp()        => HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 }

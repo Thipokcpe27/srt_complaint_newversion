@@ -62,7 +62,7 @@
                         </label>
                         <input asp-for="OrgName" type="text" required class="form-input w-full"
                                placeholder="การรถไฟแห่งประเทศไทย" />
-                        <p class="text-xs text-gray-400 mt-1">ใช้แสดงใน PDF รายงาน และอีเมล</p>
+                        <p class="text-xs text-gray-500 mt-1">ใช้แสดงใน PDF รายงาน และอีเมล</p>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1.5">
@@ -73,7 +73,7 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1.5">เบอร์โทรศัพท์</label>
                         <input asp-for="OrgPhone" type="text" class="form-input w-full" placeholder="1690" />
-                        <p class="text-xs text-gray-400 mt-1">แสดงใน footer และหน้า FAQ</p>
+                        <p class="text-xs text-gray-500 mt-1">แสดงใน footer และหน้า FAQ</p>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1.5">อีเมลติดต่อ</label>
@@ -87,7 +87,7 @@
                         <label class="block text-sm font-semibold text-gray-700 mb-1.5">ที่อยู่</label>
                         <textarea asp-for="OrgAddress" rows="2" class="form-textarea w-full"
                                   placeholder="1 ถ.รองเมือง แขวงรองเมือง เขตปทุมวัน กรุงเทพฯ 10330"></textarea>
-                        <p class="text-xs text-gray-400 mt-1">แสดงใน footer และ PDF</p>
+                        <p class="text-xs text-gray-500 mt-1">แสดงใน footer และ PDF</p>
                     </div>
                 </div>
                 <div class="flex justify-end pt-2 border-t border-gray-100">
@@ -168,7 +168,7 @@
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-1.5">
                                 SMTP Password
-                                <span class="text-xs text-gray-400 font-normal ml-1">(เว้นว่างเพื่อคงรหัสเดิม)</span>
+                                <span class="text-xs text-gray-500 font-normal ml-1">(เว้นว่างเพื่อคงรหัสเดิม)</span>
                             </label>
                             <input asp-for="SmtpPass" type="password" autocomplete="new-password" class="form-input w-full"
                                    placeholder="••••••••" />
@@ -214,7 +214,7 @@
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-1.5">
                                 API Key
-                                <span class="text-xs text-gray-400 font-normal ml-1">(เว้นว่างเพื่อคงค่าเดิม)</span>
+                                <span class="text-xs text-gray-500 font-normal ml-1">(เว้นว่างเพื่อคงค่าเดิม)</span>
                             </label>
                             <input asp-for="SmsApiKey" type="password" autocomplete="new-password" class="form-input w-full"
                                    placeholder="••••••••" />
@@ -223,20 +223,20 @@
                             <label class="block text-sm font-semibold text-gray-700 mb-1.5">ชื่อผู้ส่ง (Sender ID)</label>
                             <input asp-for="SmsSender" type="text" maxlength="11" class="form-input w-full"
                                    placeholder="SRT" />
-                            <p class="text-xs text-gray-400 mt-1">ไม่เกิน 11 ตัวอักษร ไม่มีช่องว่าง</p>
+                            <p class="text-xs text-gray-500 mt-1">ไม่เกิน 11 ตัวอักษร ไม่มีช่องว่าง</p>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- หมายเหตุ sensitive -->
-            <div class="flex items-start gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
-                <svg class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+                <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
                 <span>Password และ API Key ถูกเก็บใน database — สำหรับ production ควรใช้ Environment Variables แทน
-                (<code class="font-mono bg-gray-100 px-1 rounded">Notifications__SmtpPassword</code>) เพื่อความปลอดภัยสูงสุด</span>
+                (<code class="font-mono bg-amber-100 px-1 rounded">Notifications__SmtpPassword</code>) เพื่อความปลอดภัยสูงสุด</span>
             </div>
 
             <div class="flex justify-end">
@@ -307,7 +307,7 @@
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-1.5">
                                 Password
-                                <span class="text-xs text-gray-400 font-normal ml-1">(เว้นว่างเพื่อคงรหัสเดิม)</span>
+                                <span class="text-xs text-gray-500 font-normal ml-1">(เว้นว่างเพื่อคงรหัสเดิม)</span>
                             </label>
                             <input asp-for="TraffyPassword" type="password" autocomplete="new-password"
                                    class="form-input w-full" placeholder="••••••••" />
@@ -315,18 +315,18 @@
                         <div>
                             <label class="block text-sm font-semibold text-gray-700 mb-1.5">
                                 Webhook Secret
-                                <span class="text-xs text-gray-400 font-normal ml-1">(เว้นว่างเพื่อคงค่าเดิม)</span>
+                                <span class="text-xs text-gray-500 font-normal ml-1">(เว้นว่างเพื่อคงค่าเดิม)</span>
                             </label>
                             <input asp-for="TraffyWebhookSecret" type="password" autocomplete="new-password"
                                    class="form-input w-full" placeholder="••••••••" />
-                            <p class="text-xs text-gray-400 mt-1">
+                            <p class="text-xs text-gray-500 mt-1">
                                 ใช้ตรวจสอบ Webhook จาก Traffy ผ่าน Header <code class="font-mono bg-gray-100 px-1 rounded">X-Traffy-Secret</code>
                             </p>
                         </div>
                     </div>
 
-                    <div class="flex items-start gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3">
-                        <svg class="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-800">
+                        <svg class="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                   d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
@@ -421,11 +421,11 @@
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1.5">
                             เวลาที่คาดว่าจะกลับมาให้บริการ
-                            <span class="text-xs text-gray-400 font-normal ml-1">(ไม่บังคับ)</span>
+                            <span class="text-xs text-gray-500 font-normal ml-1">(ไม่บังคับ)</span>
                         </label>
                         <input asp-for="MaintenanceExpectedBack" type="text" class="form-input w-full"
                                placeholder="เช่น วันที่ 1 มิถุนายน 2568 เวลา 08:00 น." />
-                        <p class="text-xs text-gray-400 mt-1">แสดงใต้ข้อความบนหน้าปิดปรับปรุง</p>
+                        <p class="text-xs text-gray-500 mt-1">แสดงใต้ข้อความบนหน้าปิดปรับปรุง</p>
                     </div>
 
                     <div class="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700">
@@ -502,14 +502,16 @@
                             <span class="w-2 h-2 rounded-full bg-rose-400 shrink-0"></span>
                             การยื่นเรื่องร้องเรียน (Submit)
                         </p>
-                        <div class="max-w-xs">
-                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">จำนวนสูงสุด (ครั้ง)</label>
-                            <input asp-for="SubmitLimitPerHour" type="number" min="1" max="100" class="form-input w-full" />
-                            <p class="text-xs text-gray-400 mt-1">ต่อ IP ต่อ 1 ชั่วโมง</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-sm">
+                            <div>
+                                <label class="block text-sm font-semibold text-gray-700 mb-1.5">จำนวนสูงสุด (ครั้ง)</label>
+                                <input asp-for="SubmitLimitPerHour" type="number" min="1" max="100" class="form-input w-full" />
+                                <p class="text-xs text-gray-500 mt-1">ต่อ IP ต่อ 1 ชั่วโมง</p>
+                            </div>
                         </div>
                     </div>
 
-                    <hr class="border-gray-100" />
+                    <hr class="border-gray-200" />
 
                     <div>
                         <p class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -528,7 +530,7 @@
                         </div>
                     </div>
 
-                    <hr class="border-gray-100" />
+                    <hr class="border-gray-200" />
 
                     <div>
                         <p class="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
@@ -564,10 +566,12 @@
                     </div>
                 </div>
                 <div class="p-6">
-                    <div class="max-w-xs">
-                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">หมดเวลา Idle (นาที)</label>
-                        <input asp-for="SessionTimeoutMinutes" type="number" min="5" max="480" class="form-input w-full" />
-                        <p class="text-xs text-gray-400 mt-1">ค่าแนะนำ 30 นาที</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-sm">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">หมดเวลา Idle (นาที)</label>
+                            <input asp-for="SessionTimeoutMinutes" type="number" min="5" max="480" class="form-input w-full" />
+                            <p class="text-xs text-gray-500 mt-1">ค่าแนะนำ 30 นาที</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -593,10 +597,12 @@
                         </svg>
                         <span>กฎหมายกำหนดให้เก็บ Traffic log <strong>อย่างน้อย 90 วัน</strong> — ค่าที่ตั้งนี้จะมีผลทันที ไม่ต้องรีสตาร์ท</span>
                     </div>
-                    <div class="max-w-xs">
-                        <label class="block text-sm font-semibold text-gray-700 mb-1.5">เก็บ Audit Log ไว้ (วัน)</label>
-                        <input asp-for="AuditRetentionDays" type="number" min="90" max="3650" class="form-input w-full" />
-                        <p class="text-xs text-gray-400 mt-1">ขั้นต่ำ 90 วัน · ระบบลบอัตโนมัติทุก 24 ชั่วโมง</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-sm">
+                        <div>
+                            <label class="block text-sm font-semibold text-gray-700 mb-1.5">เก็บ Audit Log ไว้ (วัน)</label>
+                            <input asp-for="AuditRetentionDays" type="number" min="90" max="3650" class="form-input w-full" />
+                            <p class="text-xs text-gray-500 mt-1">ขั้นต่ำ 90 วัน · ระบบลบอัตโนมัติทุก 24 ชั่วโมง</p>
+                        </div>
                     </div>
                 </div>
             </div>

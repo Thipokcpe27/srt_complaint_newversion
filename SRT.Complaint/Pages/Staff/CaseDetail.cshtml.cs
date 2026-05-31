@@ -121,6 +121,22 @@ public class CaseDetailModel(
         return RedirectToPage(new { id });
     }
 
+    public async Task<IActionResult> OnGetDownloadAttachmentAsync(int id, int attachmentId)
+    {
+        var complaint = await complaintService.GetByIdAsync(id);
+        if (complaint == null) return NotFound();
+
+        var att = complaint.Attachments.FirstOrDefault(a => a.Id == attachmentId);
+        if (att == null) return NotFound();
+
+        if (!System.IO.File.Exists(att.StoredPath))
+            return NotFound();
+
+        var bytes = await System.IO.File.ReadAllBytesAsync(att.StoredPath);
+        var mime = att.MimeType ?? "application/octet-stream";
+        return File(bytes, mime, att.FileName);
+    }
+
     public async Task<IActionResult> OnPostDownloadPdfAsync(int id, [FromForm] bool maskReporter = false)
     {
         var complaint = await complaintService.GetByIdAsync(id);

@@ -211,6 +211,35 @@
 
 **ครอบคลุมตาม พ.ร.บ.:** ตัวตนผู้ใช้ ✅ · วัน/เวลา ✅ · IP Address ✅ · Login/Logout/LoginFailed ✅ · UserAgent/Application ✅ · Outcome สำเร็จ/ล้มเหลว ✅ · Retention ≥90 วัน ✅
 
+### Phase 25: Audit Log ครอบคลุมทุกการกระทำในระบบ
+- [x] AuditLog.cshtml.cs — เพิ่ม FormatAction labels: ChangePassword, UpdateOrgSettings, UpdateNotifySettings, UpdateSecuritySettings, UpdateTraffySettings, UpdateMaintenanceMode, UpdateTerms, CreateFaq, EditFaq, ToggleFaq, DeleteFaq, UpdatePdpaSettings, PdpaManualRun, SyncExternal, ReopenCase, ReopenCorruptionCase
+- [x] AuditLog.cshtml.cs — เพิ่ม EntityTypeLabel: SystemSetting, ComplaintTerms, FaqItem, ExternalSync
+- [x] AuditLog.cshtml.cs — เพิ่ม FormatDetail cases สำหรับ action ใหม่ทั้งหมด (notify, maintenance, security, traffy, org, terms, faq, pdpa, sync, changepassword)
+- [x] Settings.cshtml.cs — inject IAuditService, log ทุก POST handler (org/notify/traffy/maintenance/security) พร้อม detail ที่ไม่เปิดเผย password/secret
+- [x] Terms.cshtml.cs — inject IAuditService, log UpdateTerms
+- [x] Faq.cshtml.cs — inject IAuditService, log CreateFaq/EditFaq/ToggleFaq/DeleteFaq + Truncate helper
+- [x] PdpaRetention.cshtml.cs — inject IAuditService, log UpdatePdpaSettings + PdpaManualRun
+- [x] Staff/ChangePassword.cshtml.cs — inject IAuditService, log ChangePassword (ระบุด้วยว่า forced หรือไม่)
+- [x] Staff/Queue.cshtml.cs — inject IAuditService, log SyncExternal พร้อม fetched/newCount/duplicates/status
+
+**ครอบคลุมทุก action แล้ว:** Login/Logout ✅ · เรื่องร้องเรียน ✅ · เรื่องทุจริต ✅ · จัดการ User ✅ · API Key ✅ · SLA ✅ · หมวดหมู่ ✅ · Template แจ้งเตือน ✅ · Webhook ✅ · **ตั้งค่าระบบ ✅** · **หลักเกณฑ์ ✅** · **FAQ ✅** · **PDPA ✅** · **เปลี่ยน password ✅** · **Sync Traffy ✅**
+
+### Phase 24: UI/UX Fixes
+- [x] Reports.cshtml.cs — ลบ `.Take(5000)` ออกจาก Excel export → export ทุกเรื่อง, อัปเดต label ปุ่ม "Export Excel (ทั้งหมด)"
+- [x] app.css — เพิ่ม `text-gray-900` ใน `.form-input`, `.form-select`, `.form-textarea` → ข้อความใน input ชัดเจนบนพื้นขาวทุก browser
+- [x] PdpaRetention.cshtml — Stats grid `grid-cols-2` → `grid-cols-1 sm:grid-cols-2` (responsive), hint text `text-gray-400` → `text-gray-500`, number label สีเทาเพิ่มขึ้น
+- [x] Settings.cshtml (notify) — warning box `text-gray-400 bg-gray-50 border-gray-100` → `text-amber-800 bg-amber-50 border-amber-200` (contrast ผ่าน WCAG AA), hint text → `text-gray-500`
+- [x] Settings.cshtml (security) — `hr border-gray-100` → `border-gray-200`, Submit field `max-w-xs` → `grid sm:grid-cols-2 max-w-sm`, Session/AuditLog `max-w-xs` → `grid max-w-sm`, hint texts → `text-gray-500`
+- [x] Settings.cshtml (traffy) — warning box → amber style, hint text → `text-gray-500`
+- [x] Settings.cshtml (maintenance) — hint text → `text-gray-500`
+- [x] Settings.cshtml (org) — hint texts `text-gray-400` → `text-gray-500` ด้วย replace_all
+
+### Phase 23: Staff File Attachment
+- [x] CreateComplaint.cshtml — เพิ่ม section ไฟล์แนบ (drag-drop zone + file list preview) + `enctype="multipart/form-data"`
+- [x] CreateComplaint.cshtml.cs — เพิ่ม `Attachments List<IFormFile>?` ใน `CreateComplaintInput` + `ValidateFiles()` (5 ไฟล์, 10 MB, whitelist ext) + ส่ง `Input.Attachments` เข้า `SubmitComplaintRequest`
+- [x] CaseDetail.cshtml.cs — เพิ่ม `OnGetDownloadAttachmentAsync(id, attachmentId)` handler อ่านจาก `StoredPath` และ return `File(bytes, mime, fileName)`
+- [x] CaseDetail.cshtml — ปรับ Attachments section: นับจำนวนไฟล์, icon แยกรูป/เอกสาร, ปุ่ม "ดาวน์โหลด" hover-to-show ลิงก์ไปที่ handler
+
 ### Phase 22: PDPA — ลบข้อมูลส่วนตัวผู้ร้องเรียน
 - [x] Models/Complaint.cs + CorruptionReport.cs — เพิ่ม PiiDeletedAt (DateTime?)
 - [x] Services/PdpaRetentionService.cs — BackgroundService ทุก 24 ชั่วโมง, anonymize PII ทั้ง Complaint + CorruptionReport, static RunNowAsync() สำหรับ manual trigger

@@ -15,7 +15,8 @@ public class PdpaRetentionModel(
     CorruptionDbContext corrDb,
     ISystemSettingService settings,
     IServiceScopeFactory scopeFactory,
-    ILogger<PdpaRetentionModel> logger) : PageModel
+    ILogger<PdpaRetentionModel> logger,
+    IAuditService auditService) : PageModel
 {
     // ── Stats ───────────────────────────────────────────────
     public int ComplaintPiiDeletedCount   { get; private set; }
@@ -48,6 +49,10 @@ public class PdpaRetentionModel(
             ["pdpa.corruption_retention_days"] = days2.ToString(),
         }, UserId());
 
+        await auditService.LogAsync("UpdatePdpaSettings", UserId(), GetActorCode(),
+            "SystemSetting", "pdpa",
+            new { complaintRetentionDays = days1, corruptionRetentionDays = days2 },
+            GetIp(), outcome: "Success");
         TempData["Success"] = "บันทึกการตั้งค่า PDPA เรียบร้อยแล้ว";
         return RedirectToPage();
     }
@@ -58,6 +63,8 @@ public class PdpaRetentionModel(
         {
             using var scope = scopeFactory.CreateScope();
             await PdpaRetentionService.RunNowAsync(scope, logger);
+            await auditService.LogAsync("PdpaManualRun", UserId(), GetActorCode(),
+                "SystemSetting", null, new { trigger = "manual" }, GetIp(), outcome: "Success");
             TempData["Success"] = "ลบข้อมูลส่วนตัวที่ครบกำหนดเรียบร้อยแล้ว";
         }
         catch (Exception ex)
@@ -108,5 +115,7 @@ public class PdpaRetentionModel(
             .ToList();
     }
 
-    private int UserId() => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private int    UserId()       => int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    private string GetActorCode() => User.FindFirstValue("EmployeeCode") ?? "";
+    private string GetIp()        => HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 }

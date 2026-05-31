@@ -6,12 +6,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using SRT.Complaint.Data;
+using SRT.Complaint.Services;
 using SRT.Complaint.Validation;
 
 namespace SRT.Complaint.Pages.Staff;
 
 [Authorize]
-public class ChangePasswordModel(AppDbContext db) : PageModel
+public class ChangePasswordModel(AppDbContext db, IAuditService auditService) : PageModel
 {
     public bool IsForced => User.HasClaim("MustChangePassword", "true");
 
@@ -66,11 +67,18 @@ public class ChangePasswordModel(AppDbContext db) : PageModel
             return Page();
         }
 
+        var wasForced = staff.MustChangePassword;
         staff.PasswordHash = BCrypt.Net.BCrypt.HashPassword(NewPassword, workFactor: 12);
         staff.MustChangePassword = false;
         staff.TempPasswordExpiresAt = null;
         staff.TempPasswordEncrypted = null;
         await db.SaveChangesAsync();
+
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var actorCode = User.FindFirstValue("EmployeeCode") ?? staff.EmployeeCode;
+        await auditService.LogAsync("ChangePassword", staff.Id, actorCode,
+            "StaffUser", staff.Id.ToString(),
+            new { forced = wasForced }, ip, outcome: "Success");
 
         // Re-issue cookie without MustChangePassword claim
         var claims = new List<Claim>

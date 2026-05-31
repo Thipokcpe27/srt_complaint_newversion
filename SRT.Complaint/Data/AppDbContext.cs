@@ -118,6 +118,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.EntityType).HasMaxLength(50);
             e.Property(x => x.EntityId).HasMaxLength(50);
             e.Property(x => x.IpAddress).HasMaxLength(50);
+            e.Property(x => x.UserAgent).HasMaxLength(500);
+            e.Property(x => x.Outcome).HasMaxLength(20);
             e.HasOne(x => x.Actor).WithMany().HasForeignKey(x => x.ActorId).OnDelete(DeleteBehavior.SetNull);
         });
 

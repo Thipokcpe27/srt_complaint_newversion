@@ -3,6 +3,7 @@ using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
@@ -17,6 +18,10 @@ public class CreateComplaintModel(
     IComplaintService complaintService,
     AppDbContext db) : PageModel
 {
+    private static readonly string[] AllowedExtensions = [".jpg", ".jpeg", ".png", ".pdf", ".doc", ".docx"];
+    private const long MaxFileSizeBytes = 10 * 1024 * 1024;
+    private const int MaxFileCount = 5;
+
     [BindProperty]
     public CreateComplaintInput Input { get; set; } = new();
 
@@ -43,6 +48,9 @@ public class CreateComplaintModel(
     {
         await LoadDataAsync();
 
+        if (!ValidateFiles(out var fileError))
+            ModelState.AddModelError("Input.Attachments", fileError);
+
         if (!ModelState.IsValid)
             return Page();
 
@@ -56,7 +64,7 @@ public class CreateComplaintModel(
             string.IsNullOrWhiteSpace(Input.SubjectStation) ? null : Input.SubjectStation,
             Input.IncidentDate.HasValue ? DateOnly.FromDateTime(Input.IncidentDate.Value) : null,
             Input.Description,
-            [],
+            Input.Attachments ?? [],
             Input.Channel
         );
 
@@ -67,6 +75,39 @@ public class CreateComplaintModel(
 
         TempData["Success"] = $"สร้างเรื่องร้องเรียนสำเร็จ เลขที่อ้างอิง: {complaint.ReferenceNumber}";
         return RedirectToPage("/Staff/CaseDetail", new { id = complaint.Id });
+    }
+
+    private bool ValidateFiles(out string error)
+    {
+        error = string.Empty;
+        var files = Input.Attachments;
+
+        if (files == null || files.Count == 0)
+            return true;
+
+        if (files.Count > MaxFileCount)
+        {
+            error = $"แนบไฟล์ได้ไม่เกิน {MaxFileCount} ไฟล์";
+            return false;
+        }
+
+        foreach (var file in files)
+        {
+            if (file.Length > MaxFileSizeBytes)
+            {
+                error = $"ไฟล์ \"{file.FileName}\" มีขนาดเกิน 10 MB";
+                return false;
+            }
+
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!AllowedExtensions.Contains(ext))
+            {
+                error = $"ไฟล์ \"{file.FileName}\" ไม่รองรับประเภทไฟล์นี้ (รองรับ: JPG, PNG, PDF, DOC, DOCX)";
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private async Task LoadDataAsync()
@@ -121,4 +162,6 @@ public class CreateComplaintInput
     [Required(ErrorMessage = "กรุณากรอกรายละเอียดคำร้อง")]
     [MinLength(10, ErrorMessage = "รายละเอียดต้องมีอย่างน้อย 10 ตัวอักษร")]
     public string Description { get; set; } = string.Empty;
+
+    public List<IFormFile>? Attachments { get; set; }
 }

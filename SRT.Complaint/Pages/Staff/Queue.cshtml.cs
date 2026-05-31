@@ -14,6 +14,7 @@ namespace SRT.Complaint.Pages.Staff;
 public class QueueModel(
     IComplaintService complaintService,
     IExternalSyncService externalSyncService,
+    IAuditService auditService,
     AppDbContext db) : PageModel
 {
     [BindProperty(SupportsGet = true)] public string? Search { get; set; }
@@ -77,8 +78,16 @@ public class QueueModel(
 
     public async Task<IActionResult> OnPostSyncAsync(string systemKey)
     {
-        var staffId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var staffId    = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var actorCode  = User.FindFirstValue("EmployeeCode") ?? "";
+        var ip         = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         var log = await externalSyncService.SyncAsync(systemKey, staffId);
+        await auditService.LogAsync("SyncExternal", staffId, actorCode,
+            "ExternalSync", systemKey,
+            new { system = systemKey, fetched = log.FetchedCount, newCount = log.NewCount,
+                  duplicates = log.DuplicateCount, status = log.SyncStatus,
+                  error = log.ErrorMessage },
+            ip, outcome: log.SyncStatus == "Success" ? "Success" : "Failed");
         TempData["SyncResult"] = log.SyncStatus == "Success"
             ? $"success|{log.NewCount}|{log.DuplicateCount}|{log.FetchedCount}"
             : $"error|{log.ErrorMessage}";

@@ -100,21 +100,41 @@ public class AuditLogModel(AppDbContext db) : PageModel
         "Login"                      => "เข้าสู่ระบบ",
         "LoginFailed"                => "เข้าสู่ระบบล้มเหลว",
         "Logout"                     => "ออกจากระบบ",
+        "ChangePassword"             => "เปลี่ยนรหัสผ่าน",
+        "UpdateOrgSettings"          => "แก้ไขข้อมูลองค์กร",
+        "UpdateNotifySettings"       => "แก้ไขการตั้งค่าการแจ้งเตือน",
+        "UpdateSecuritySettings"     => "แก้ไขการตั้งค่าความปลอดภัย",
+        "UpdateTraffySettings"       => "แก้ไขการตั้งค่า Traffy Fondue",
+        "UpdateMaintenanceMode"      => "ตั้งค่า Maintenance Mode",
+        "UpdateTerms"                => "แก้ไขหลักเกณฑ์ร้องเรียน",
+        "CreateFaq"                  => "เพิ่มคำถาม FAQ",
+        "EditFaq"                    => "แก้ไขคำถาม FAQ",
+        "ToggleFaq"                  => "เปิด/ปิดใช้งาน FAQ",
+        "DeleteFaq"                  => "ลบคำถาม FAQ",
+        "UpdatePdpaSettings"         => "แก้ไขการตั้งค่า PDPA",
+        "PdpaManualRun"              => "สั่งลบข้อมูลส่วนตัว PDPA ทันที",
+        "SyncExternal"               => "ดึงเรื่องจากระบบภายนอก",
+        "ReopenCase"                 => "เปิดเรื่องร้องเรียนใหม่",
+        "ReopenCorruptionCase"       => "เปิดเรื่องทุจริตใหม่",
         _                            => action
     };
 
     public static string EntityTypeLabel(string? e) => e switch
     {
-        "Complaint"       => "เรื่องร้องเรียน",
-        "CorruptionReport"=> "เรื่องทุจริต",
-        "StaffUser"       => "เจ้าหน้าที่",
-        "ApiKey"          => "API Key",
-        "ComplaintCategory" => "หมวดหมู่",
-        "SlaConfig"       => "SLA",
+        "Complaint"            => "เรื่องร้องเรียน",
+        "CorruptionReport"     => "เรื่องทุจริต",
+        "StaffUser"            => "เจ้าหน้าที่",
+        "ApiKey"               => "API Key",
+        "ComplaintCategory"    => "หมวดหมู่",
+        "SlaConfig"            => "SLA",
         "NotificationTemplate" => "Template แจ้งเตือน",
-        "Webhook"         => "Webhook",
-        null or ""        => "",
-        _                 => e
+        "Webhook"              => "Webhook",
+        "SystemSetting"        => "การตั้งค่าระบบ",
+        "ComplaintTerms"       => "หลักเกณฑ์ร้องเรียน",
+        "FaqItem"              => "FAQ",
+        "ExternalSync"         => "ระบบภายนอก",
+        null or ""             => "",
+        _                      => e
     };
 
     public static string FormatDetail(string action, string? detailJson)
@@ -222,6 +242,71 @@ public class AuditLogModel(AppDbContext db) : PageModel
 
                 case "UpdateNotificationTemplate":
                     Add("Template", Get("EventKey", "eventKey"));
+                    break;
+
+                case "UpdateNotifySettings":
+                    Add("Email", Get("emailEnabled") == "true" ? "เปิด" : "ปิด");
+                    Add("SMS",   Get("smsEnabled")   == "true" ? "เปิด" : "ปิด");
+                    break;
+
+                case "UpdateMaintenanceMode":
+                    Add("สถานะ", Get("enabled") == "true" ? "⚠️ เปิด Maintenance" : "✅ ปิด Maintenance");
+                    var msg = Get("message");
+                    if (!string.IsNullOrEmpty(msg))
+                        Add("ข้อความ", msg.Length > 60 ? msg[..60] + "…" : msg);
+                    break;
+
+                case "UpdateSecuritySettings":
+                    Add("Submit จำกัด/ชม.", Get("submitLimitPerHour"));
+                    Add("Login ครั้ง/หน้าต่าง", Get("loginLimitPerWindow"));
+                    Add("Audit Retention (วัน)", Get("auditRetentionDays"));
+                    break;
+
+                case "UpdateTraffySettings":
+                    Add("เปิดใช้งาน", Get("enabled") == "true" ? "ใช่" : "ไม่");
+                    Add("OrgID", Get("orgId"));
+                    break;
+
+                case "UpdateOrgSettings":
+                    Add("ชื่อองค์กร", Get("name"));
+                    break;
+
+                case "UpdateTerms":
+                    Add("หัวข้อ", Get("title"));
+                    Add("สถานะ", Get("isActive") == "true" ? "เปิดใช้งาน" : "ปิดใช้งาน");
+                    break;
+
+                case "CreateFaq":
+                case "EditFaq":
+                    Add("คำถาม", Get("question"));
+                    Add("หมวด", Get("category"));
+                    if (action == "EditFaq")
+                        Add("สถานะ", Get("isActive") == "true" ? "เปิดใช้งาน" : "ปิดใช้งาน");
+                    break;
+
+                case "DeleteFaq":
+                    Add("FAQ ID", Get("id"));
+                    break;
+
+                case "UpdatePdpaSettings":
+                    Add("เรื่องทั่วไป (วัน)", Get("complaintRetentionDays"));
+                    Add("เรื่องทุจริต (วัน)", Get("corruptionRetentionDays"));
+                    break;
+
+                case "PdpaManualRun":
+                    parts.Add("สั่งลบด้วยตนเอง");
+                    break;
+
+                case "ChangePassword":
+                    Add("บังคับเปลี่ยน", Get("forced") == "true" ? "ใช่" : "ไม่");
+                    break;
+
+                case "SyncExternal":
+                    Add("ระบบ", Get("system"));
+                    Add("ดึงได้", Get("fetched"));
+                    Add("นำเข้าใหม่", Get("newCount"));
+                    Add("ซ้ำ", Get("duplicates"));
+                    Add("ผล", Get("status"));
                     break;
 
                 default:

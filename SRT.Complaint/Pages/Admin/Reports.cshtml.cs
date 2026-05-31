@@ -35,7 +35,6 @@ public class ReportsModel(AppDbContext db) : PageModel
             .Include(c => c.Category)
             .Include(c => c.AssignedTo)
             .OrderByDescending(c => c.CreatedAt)
-            .Take(5000)
             .ToListAsync();
 
         using var wb = new XLWorkbook();

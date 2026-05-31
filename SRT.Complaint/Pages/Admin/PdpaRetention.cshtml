@@ -61,47 +61,49 @@
     </div>
 
     <!-- Stats cards -->
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div class="card p-5">
-            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">เรื่องร้องเรียนทั่วไป</p>
-            <div class="flex items-end justify-between">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-4">เรื่องร้องเรียนทั่วไป</p>
+            <div class="flex items-end justify-between gap-3">
                 <div>
                     <div class="flex items-baseline gap-1.5">
-                        <span class="text-3xl font-bold text-red-600">@Model.ComplaintPiiPendingCount.ToString("N0")</span>
-                        <span class="text-sm text-gray-500">รายการรอลบ</span>
+                        <span class="text-3xl font-bold @(Model.ComplaintPiiPendingCount > 0 ? "text-red-600" : "text-gray-800")">
+                            @Model.ComplaintPiiPendingCount.ToString("N0")
+                        </span>
+                        <span class="text-sm text-gray-600">รายการรอลบ</span>
                     </div>
-                    <p class="text-xs text-gray-400 mt-1">ลบแล้ว @Model.ComplaintPiiDeletedCount.ToString("N0") รายการ</p>
+                    <p class="text-xs text-gray-500 mt-1.5">ลบแล้ว <span class="font-semibold text-gray-700">@Model.ComplaintPiiDeletedCount.ToString("N0")</span> รายการ</p>
                 </div>
                 @if (Model.ComplaintPiiPendingCount > 0)
                 {
-                    <span class="text-[11px] bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-semibold">ครบกำหนด</span>
+                    <span class="text-[11px] bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-semibold shrink-0">ครบกำหนด</span>
                 }
                 else
                 {
-                    <span class="text-[11px] bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-semibold">เป็นปัจจุบัน</span>
+                    <span class="text-[11px] bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-semibold shrink-0">เป็นปัจจุบัน</span>
                 }
             </div>
         </div>
 
         <div class="card p-5">
-            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-3">รายงานทุจริต</p>
-            <div class="flex items-end justify-between">
+            <p class="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-4">รายงานทุจริต</p>
+            <div class="flex items-end justify-between gap-3">
                 <div>
                     <div class="flex items-baseline gap-1.5">
                         <span class="text-3xl font-bold @(Model.CorruptionPiiPendingCount > 0 ? "text-red-600" : "text-gray-800")">
                             @Model.CorruptionPiiPendingCount.ToString("N0")
                         </span>
-                        <span class="text-sm text-gray-500">รายการรอลบ</span>
+                        <span class="text-sm text-gray-600">รายการรอลบ</span>
                     </div>
-                    <p class="text-xs text-gray-400 mt-1">ลบแล้ว @Model.CorruptionPiiDeletedCount.ToString("N0") รายการ</p>
+                    <p class="text-xs text-gray-500 mt-1.5">ลบแล้ว <span class="font-semibold text-gray-700">@Model.CorruptionPiiDeletedCount.ToString("N0")</span> รายการ</p>
                 </div>
                 @if (Model.CorruptionPiiPendingCount > 0)
                 {
-                    <span class="text-[11px] bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-semibold">ครบกำหนด</span>
+                    <span class="text-[11px] bg-red-100 text-red-700 px-2.5 py-1 rounded-full font-semibold shrink-0">ครบกำหนด</span>
                 }
                 else
                 {
-                    <span class="text-[11px] bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-semibold">เป็นปัจจุบัน</span>
+                    <span class="text-[11px] bg-green-100 text-green-700 px-2.5 py-1 rounded-full font-semibold shrink-0">เป็นปัจจุบัน</span>
                 }
             </div>
         </div>
@@ -130,20 +132,20 @@
                             เรื่องร้องเรียนทั่วไป (วัน)
                         </label>
                         <input asp-for="ComplaintRetentionDays" type="number" min="365" max="7300" class="form-input w-full" />
-                        <p class="text-xs text-gray-400 mt-1">
+                        <p class="text-xs text-gray-500 mt-1">
                             นับจาก <strong>วันปิดเรื่อง</strong> (หรือวันยื่นถ้ายังไม่ปิด) · ขั้นต่ำ 365 วัน
                         </p>
-                        <p class="text-xs text-gray-400">ค่าแนะนำ: 1825 วัน (5 ปี)</p>
+                        <p class="text-xs text-gray-500">ค่าแนะนำ: 1825 วัน (5 ปี)</p>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold text-gray-700 mb-1.5">
                             รายงานทุจริต (วัน)
                         </label>
                         <input asp-for="CorruptionRetentionDays" type="number" min="365" max="7300" class="form-input w-full" />
-                        <p class="text-xs text-gray-400 mt-1">
+                        <p class="text-xs text-gray-500 mt-1">
                             นับจาก <strong>วันปิดเรื่อง</strong> (หรือวันยื่นถ้ายังไม่ปิด) · ขั้นต่ำ 365 วัน
                         </p>
-                        <p class="text-xs text-gray-400">ค่าแนะนำ: 1825 วัน (5 ปี)</p>
+                        <p class="text-xs text-gray-500">ค่าแนะนำ: 1825 วัน (5 ปี)</p>
                     </div>
                 </div>
 
@@ -154,7 +156,7 @@
                         <li>เบอร์โทรศัพท์, อีเมล, เลขบัตรประชาชน → ลบออก</li>
                         <li>เรื่องทุจริต: ข้อมูลเข้ารหัสทั้งหมด → ลบออก</li>
                     </ul>
-                    <p class="text-amber-600 mt-1">ระบบรันอัตโนมัติทุก 24 ชั่วโมง · กด "ลบข้อมูลทันที" เพื่อรันเดี๋ยวนี้</p>
+                    <p class="text-amber-700 mt-1">ระบบรันอัตโนมัติทุก 24 ชั่วโมง · กด "ลบข้อมูลทันที" เพื่อรันเดี๋ยวนี้</p>
                 </div>
             </div>
             <div class="px-6 pb-6 flex justify-end">

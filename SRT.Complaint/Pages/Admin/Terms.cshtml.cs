@@ -9,7 +9,7 @@ using SRT.Complaint.Services;
 namespace SRT.Complaint.Pages.Admin;
 
 [Authorize(Policy = "SuperAdmin")]
-public class TermsModel(ITermsService termsService) : PageModel
+public class TermsModel(ITermsService termsService, IAuditService auditService) : PageModel
 {
     public ComplaintTerms? CurrentTerms { get; private set; }
 
@@ -40,6 +40,11 @@ public class TermsModel(ITermsService termsService) : PageModel
 
         var userId = int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : 0;
         await termsService.SaveTermsAsync(Input.Title, Input.Content, Input.IsActive, userId);
+        var actorCode = User.FindFirstValue("EmployeeCode") ?? "";
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        await auditService.LogAsync("UpdateTerms", userId, actorCode,
+            "ComplaintTerms", null,
+            new { title = Input.Title, isActive = Input.IsActive }, ip, outcome: "Success");
         TempData["Success"] = "บันทึกหลักเกณฑ์เรียบร้อยแล้ว";
         return RedirectToPage();
     }
