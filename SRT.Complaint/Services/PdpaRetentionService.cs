@@ -3,7 +3,7 @@ using SRT.Complaint.Data;
 
 namespace SRT.Complaint.Services;
 
-public class PdpaRetentionService(IServiceScopeFactory scopeFactory, IConfiguration config, ILogger<PdpaRetentionService> logger)
+public class PdpaRetentionService(IServiceScopeFactory scopeFactory, ILogger<PdpaRetentionService> logger)
     : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -20,7 +20,7 @@ public class PdpaRetentionService(IServiceScopeFactory scopeFactory, IConfigurat
 
     private async Task PurgeComplaintPiiAsync(CancellationToken ct)
     {
-        var days = await GetRetentionDaysAsync("pdpa.complaint_retention_days", "pdpa.complaint_retention_days", 1825);
+        var days = await GetRetentionDaysAsync("pdpa.complaint_retention_days", 1825);
         var cutoff = DateTime.UtcNow.AddDays(-days);
 
         try
@@ -55,7 +55,7 @@ public class PdpaRetentionService(IServiceScopeFactory scopeFactory, IConfigurat
 
     private async Task PurgeCorruptionPiiAsync(CancellationToken ct)
     {
-        var days = await GetRetentionDaysAsync("pdpa.corruption_retention_days", "pdpa.corruption_retention_days", 1825);
+        var days = await GetRetentionDaysAsync("pdpa.corruption_retention_days", 1825);
         var cutoff = DateTime.UtcNow.AddDays(-days);
 
         try
@@ -91,7 +91,7 @@ public class PdpaRetentionService(IServiceScopeFactory scopeFactory, IConfigurat
         }
     }
 
-    private async Task<int> GetRetentionDaysAsync(string dbKey, string configKey, int defaultDays)
+    private async Task<int> GetRetentionDaysAsync(string dbKey, int defaultDays)
     {
         try
         {
@@ -100,8 +100,11 @@ public class PdpaRetentionService(IServiceScopeFactory scopeFactory, IConfigurat
             var raw = await svc.GetAsync(dbKey);
             if (int.TryParse(raw, out var d) && d > 0) return d;
         }
-        catch { }
-        return config.GetValue($"Pdpa:{configKey}", defaultDays);
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "PDPA: ไม่สามารถอ่าน retention days จาก DB (key: {Key}) ใช้ค่า default {Default} วัน", dbKey, defaultDays);
+        }
+        return defaultDays;
     }
 
     // ── Public method สำหรับ manual trigger จาก Admin UI ────────────────────

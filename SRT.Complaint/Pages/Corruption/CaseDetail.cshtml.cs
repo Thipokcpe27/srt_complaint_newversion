@@ -121,8 +121,16 @@ public class CaseDetailModel(
         }
 
         var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-        DecryptedInfo = await corruptionService.DecryptReporterInfoAsync(
-            id, GetStaffId(), DecryptReason.Trim(), ipAddress);
+        try
+        {
+            DecryptedInfo = await corruptionService.DecryptReporterInfoAsync(
+                id, GetStaffId(), DecryptReason.Trim(), ipAddress);
+        }
+        catch (InvalidOperationException ex)
+        {
+            TempData["Error"] = ex.Message;
+            return RedirectToPage(new { id });
+        }
 
         return await LoadAsync(id);   // reload report + return Page() with DecryptedInfo set
     }

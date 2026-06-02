@@ -127,7 +127,7 @@ public class TraffyWebhookController(
             if (newSrtStatus is "Resolved" or "Closed")
                 complaint.ClosedAt = DateTime.UtcNow;
 
-            // Record as a system note (AuthorId = 0 = system)
+            // Record as a system note (AuthorId = null = system)
             db.ComplaintNotes.Add(new Models.ComplaintNote
             {
                 ComplaintId = complaint.Id,

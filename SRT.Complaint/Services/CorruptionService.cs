@@ -117,6 +117,9 @@ public class CorruptionService(
         await db.SaveChangesAsync(ct);
         await auditService.LogAsync("DecryptReporterInfo", requestedById, null, "CorruptionReport", reportId.ToString(), new { reason }, ipAddress, ct: ct);
 
+        if (report.PiiDeletedAt.HasValue)
+            throw new InvalidOperationException("ข้อมูลผู้แจ้งเบาะแสถูกลบตาม PDPA แล้ว ไม่สามารถถอดรหัสได้");
+
         return new DecryptedReporterInfo(
             masking.Decrypt(report.ReporterNameEncrypted),
             masking.Decrypt(report.ReporterPhoneEncrypted),

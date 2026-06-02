@@ -251,6 +251,23 @@
 
 **Logic ลบ:** ลบเฉพาะ ชื่อ/เบอร์/อีเมล/เลขบัตร (เรื่องและประวัติดำเนินงานยังอยู่) · นับจาก ClosedAt ถ้ามี ไม่งั้นจาก CreatedAt · ขั้นต่ำ 365 วัน
 
+### Phase 26: Home Content Management (ไม่ได้ track ใน Progress ตั้งแต่ต้น)
+- [x] Models/ContentBlock.cs — Key, Title, BodyHtml, IsActive, UpdatedAt, UpdatedById
+- [x] Services/IContentBlockService.cs + ContentBlockService.cs — GetHomeBlocksAsync, SaveAsync (+ HtmlSanitizer)
+- [x] Data/AppDbContext.cs — DbSet<ContentBlock> + entity config (unique index on Key)
+- [x] Migration: AddContentBlocks — applied
+- [x] Pages/Admin/HomeContent.cshtml + .cs — แก้ไข home_steps / home_contact / home_trust
+- [x] Pages/Index.cshtml.cs — inject IContentBlockService, ส่ง HomeBlocks ไปที่ View
+- [x] _StaffLayout.cshtml — เพิ่มเมนู "HomeContent" ใน Admin sidebar
+- [x] Program.cs — AddScoped<IContentBlockService, ContentBlockService>
+
+### Phase 27: Bug Fixes — Error Sweep (2026-06-02)
+- [x] Bug: MaskingService.Decrypt — ไม่มี guard สำหรับ data สั้นกว่า IV (16 bytes) → `new byte[-16]` crash → เพิ่ม check `data.Length <= ivLen` ก่อน allocate
+- [x] Bug: CorruptionService.DecryptReporterInfoAsync — ไม่เช็ค PiiDeletedAt ก่อน Decrypt → OverflowException หลัง PDPA ลบ PII → เพิ่ม guard `if (report.PiiDeletedAt.HasValue) throw`
+- [x] Bug: Corruption/CaseDetail.cshtml.cs OnPostDecryptAsync — ไม่มี try-catch รับ InvalidOperationException → 500 error page → เพิ่ม catch → TempData["Error"]
+- [x] Bug: PdpaRetentionService.GetRetentionDaysAsync — `catch { }` เงียบ + config key ผิด (`Pdpa:pdpa.xxx`) → เปลี่ยนเป็น `catch (Exception ex)` พร้อม LogWarning + ตัดพารามิเตอร์ configKey ออก (ใช้ defaultDays แทน)
+- [x] Comment: TraffyWebhookController.cs — แก้ comment `AuthorId = 0 = system` → `AuthorId = null = system`
+
 ## Notes / Issues พบระหว่างทำ
 
 - ใช้ `@page "{id:int}"` สำหรับ CaseDetail ให้ URL เป็น `/Staff/CaseDetail/123`
