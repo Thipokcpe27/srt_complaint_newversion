@@ -16,6 +16,7 @@
 - [Statistics API](#statistics-api)
 - [Webhooks API](#webhooks-api)
 - [Webhook Events (Outbound)](#webhook-events-outbound)
+- [Traffy Fondue Webhook Receiver](#traffy-fondue-webhook-receiver)
 
 ---
 
@@ -64,14 +65,15 @@ API Key ขอได้จาก Super Admin ผ่านหน้า **Admin �
 
 ## Rate Limiting
 
-- **Sliding Window:** 60 วินาที / Key
+- **Fixed Window:** นับ request ต่อนาทีต่อ API Key
+- ค่าเริ่มต้น: **60 requests/นาที** (ปรับได้ตอนสร้าง Key ใน Admin → API Keys)
 - เมื่อเกิน limit → `429 Too Many Requests`
-- Header ที่ส่งกลับ:
 
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 42
-X-RateLimit-Reset: 1717123456
+```json
+{
+  "error": "Rate limit exceeded",
+  "retryAfter": "60s"
+}
 ```
 
 ---
@@ -483,7 +485,7 @@ X-API-Key: srt_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 Content-Type: application/json
 X-SRT-Event: complaint.status_changed
 X-SRT-Signature: sha256=abcdef1234567890...
-X-SRT-Delivery: uuid-xxxxxxxx
+X-SRT-Timestamp: 1717123456
 ```
 
 ### Verify Signature
@@ -516,56 +518,61 @@ bool Verify(string secret, byte[] payload, string signatureHeader)
 
 ---
 
-### Event: complaint.created
+> **หมายเหตุ:** Body เป็น payload โดยตรง ไม่มี wrapper object
+
+### Event: `complaint.created`
+
+Header: `X-SRT-Event: complaint.created`
 
 ```json
 {
-  "event": "complaint.created",
-  "occurredAt": "2025-05-28T07:00:00Z",
-  "data": {
-    "referenceNumber": "SRT-COMPL-2568-0042",
-    "status": "Pending",
-    "priority": "Normal",
-    "category": "บริการบนขบวนรถ",
-    "createdAt": "2025-05-28T07:00:00Z",
-    "trackingUrl": "https://www.railway.co.th/complaint/track/SRT-COMPL-2568-0042"
-  }
+  "referenceNumber": "SRT-COMPL-2568-0042",
+  "status": "Pending",
+  "priority": "Normal",
+  "createdAt": "2025-05-28T07:00:00Z"
 }
 ```
 
 ---
 
-### Event: complaint.status_changed
+### Event: `complaint.status_changed`
+
+Header: `X-SRT-Event: complaint.status_changed`
 
 ```json
 {
-  "event": "complaint.status_changed",
-  "occurredAt": "2025-05-28T10:00:00Z",
-  "data": {
-    "referenceNumber": "SRT-COMPL-2568-0042",
-    "oldStatus": "Pending",
-    "newStatus": "InProgress",
-    "updatedAt": "2025-05-28T10:00:00Z"
-  }
+  "referenceNumber": "SRT-COMPL-2568-0042",
+  "oldStatus": "Pending",
+  "newStatus": "InProgress",
+  "updatedAt": "2025-05-28T10:00:00Z"
 }
 ```
 
 ---
 
-### Event: complaint.closed
+### Event: `complaint.closed`
+
+Header: `X-SRT-Event: complaint.closed`
 
 ```json
 {
-  "event": "complaint.closed",
-  "occurredAt": "2025-05-28T15:00:00Z",
-  "data": {
-    "referenceNumber": "SRT-COMPL-2568-0042",
-    "status": "Resolved",
-    "closedAt": "2025-05-28T15:00:00Z",
-    "satisfactionScore": null
-  }
+  "referenceNumber": "SRT-COMPL-2568-0042",
+  "oldStatus": "InProgress",
+  "newStatus": "Resolved",
+  "updatedAt": "2025-05-28T15:00:00Z"
 }
 ```
+
+### Retry Policy
+
+ระบบลอง retry อัตโนมัติหาก endpoint ตอบกลับ status ≥ 400 หรือ timeout (สูงสุด 4 ครั้ง):
+
+| ครั้งที่ | รอนาน |
+|---|---|
+| 1 | 5 นาที |
+| 2 | 30 นาที |
+| 3 | 2 ชั่วโมง |
+| 4 | ไม่ retry อีก |
 
 ---
 
@@ -593,6 +600,122 @@ curl -X PUT \
 # ดูสถิติสรุป
 curl -H "X-API-Key: srt_live_xxx" \
   https://www.railway.co.th/complaint/api/stats/summary
+```
+
+---
+
+## Traffy Fondue Webhook Receiver
+
+Endpoint สำหรับรับ push notification จาก **Traffy Fondue Exchange API** ของ NECTEC — **ไม่ต้องใช้ `X-API-Key`** แต่ใช้ `{secret}` ใน URL path แทน
+
+> ตั้งค่า secret ได้ที่ **Admin → ตั้งค่าระบบ → Traffy Fondue → Webhook Secret**  
+> แล้วแจ้ง URL ทั้งสองด้านล่างให้ทีม NECTEC ลงทะเบียน
+
+---
+
+### POST /api/traffy-webhook/{secret}/new-issue
+
+รับเรื่องใหม่จาก Traffy แล้ว import เข้าระบบทันที (dedup ด้วย `ticket_id` อัตโนมัติ)
+
+**Path Parameter:** `{secret}` — ตรงกับที่ตั้งใน Admin
+
+**Request Body (Traffy format):**
+
+```json
+{
+  "ticket_id": "traffy_abc123",
+  "description": "ถนนเสียหายข้างสถานีรถไฟ",
+  "address": "ถนนสุขุมวิท กรุงเทพ",
+  "type": "ถนน",
+  "topic": ["โครงสร้างพื้นฐาน"],
+  "timestamp": "2026-06-01T09:00:00Z",
+  "status": "รอรับเรื่อง",
+  "name": "สมหญิง ดีใจ",
+  "phone": "0898765432"
+}
+```
+
+| Field | Type | Required | คำอธิบาย |
+|---|---|---|---|
+| `ticket_id` | string | ✅ | รหัสเรื่องใน Traffy (ใช้ dedup) |
+| `description` | string | — | รายละเอียดเรื่อง |
+| `address` | string | — | สถานที่เกิดเหตุ → บันทึกเป็น `SubjectStation` |
+| `type` | string | — | ประเภทเรื่อง (Traffy category) |
+| `topic` | string[] | — | หมวดย่อย |
+| `timestamp` | ISO 8601 | — | วันที่แจ้งเรื่อง |
+| `status` | string | — | สถานะใน Traffy |
+| `name` | string | — | ชื่อผู้แจ้ง |
+| `phone` | string | — | เบอร์โทร (ระบบ normalize ให้อัตโนมัติ — รับ 9–10 หลัก) |
+
+**Response `200 OK` — เรื่องใหม่ (import สำเร็จ):**
+
+```json
+{
+  "imported": true,
+  "reference": "SRT-COMPL-2026-0042"
+}
+```
+
+**Response `200 OK` — เรื่องซ้ำ (ข้าม):**
+
+```json
+{
+  "imported": false,
+  "reason": "duplicate"
+}
+```
+
+**Response `401 Unauthorized` — secret ผิด:**
+
+ไม่มี body
+
+---
+
+### PATCH /api/traffy-webhook/{secret}/update-status
+
+รับอัปเดตสถานะจาก Traffy แล้ว sync เข้าระบบ รฟท.
+
+**Path Parameter:** `{secret}` — ตรงกับที่ตั้งใน Admin
+
+**Request Body:**
+
+```json
+{
+  "ticket_id": "traffy_abc123",
+  "status_id": 3,
+  "note": "ดำเนินการแก้ไขเสร็จสิ้น"
+}
+```
+
+| Field | Type | Required | คำอธิบาย |
+|---|---|---|---|
+| `ticket_id` | string | ✅ | รหัสเรื่องใน Traffy |
+| `status_id` | integer | ✅ | สถานะ Traffy (ดู mapping ด้านล่าง) |
+| `note` | string | — | หมายเหตุจาก Traffy (บันทึกใน complaint notes) |
+
+**Traffy `status_id` → สถานะใน รฟท.:**
+
+| `status_id` | สถานะ รฟท. | คำอธิบาย |
+|---|---|---|
+| `3` | `Resolved` | แก้ไขแล้ว |
+| `4` | `Rejected` | ปฏิเสธ |
+| อื่นๆ | *(ไม่เปลี่ยน)* | ระบบบันทึก log แต่ไม่ sync สถานะ |
+
+**Response `200 OK`:**
+
+```json
+{
+  "updated": true
+}
+```
+
+**Response `200 OK` — ไม่พบ ticket ในระบบ รฟท.:**
+
+```json
+{
+  "updated": false,
+  "reason": "not_found"
+}
 ```
 
 ---

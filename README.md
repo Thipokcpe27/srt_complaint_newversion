@@ -135,7 +135,8 @@ srt_complaint_newversion/
 ### API (External)
 - REST API พร้อม API Key authentication
 - รองรับ Webhook แจ้งเตือน external systems เมื่อสถานะเปลี่ยน
-- Rate limiting แบบ Sliding Window
+- Rate limiting แบบ Fixed Window (60 req/นาที ต่อ Key)
+- ดูเอกสาร API เต็มรูปแบบได้ที่ **[API.md](./API.md)**
 
 ### External System Integration
 - **Traffy Fondue Exchange API** — ดึงคำร้องจาก Traffy เข้าระบบ รฟท. อัตโนมัติ (JWT auth + token cache)
@@ -201,56 +202,25 @@ srt_complaint_newversion/
 
 ## REST API
 
-### Authentication
-ทุก endpoint ต้องส่ง Header:
-```
-X-API-Key: {your-api-key}
-```
+> ดูเอกสาร API เต็มรูปแบบพร้อม request/response examples ได้ที่ **[API.md](./API.md)**
 
-### Endpoints
+### Endpoints สรุป
 
-#### Complaints
-```
-POST   /api/complaints                         สร้างเรื่องร้องเรียนใหม่
-GET    /api/complaints/{referenceNumber}        ดูรายละเอียดเรื่อง
-GET    /api/complaints/{referenceNumber}/status ดูสถานะเรื่อง
-PUT    /api/complaints/{referenceNumber}/status อัปเดตสถานะ
-GET    /api/complaints/{referenceNumber}/edoc-payload ดึงข้อมูลสำหรับ e-Document
-```
-
-#### Statistics
-```
-GET    /api/stats/summary    สรุปสถิติเรื่องร้องเรียนทั่วไป
-GET    /api/stats/detailed   สถิติละเอียด
-GET    /api/stats/corruption สถิติเรื่องทุจริต
-```
-
-#### Webhooks
-```
-GET    /api/webhooks         รายการ Webhook ที่ลงทะเบียน
-POST   /api/webhooks         ลงทะเบียน Webhook ใหม่
-DELETE /api/webhooks/{id}    ลบ Webhook
-```
-
-#### Traffy Fondue Webhook Receiver (รับ push จาก Traffy)
-```
-POST   /api/traffy-webhook/new-issue      รับเรื่องใหม่จาก Traffy → import เข้าระบบ
-PATCH  /api/traffy-webhook/update-status  รับอัปเดตสถานะจาก Traffy → sync เข้าระบบ
-```
-> ต้องลงทะเบียน URL ทั้งสองกับทีม NECTEC และตั้ง `TraffyFondue:WebhookSecret`
-
-### Scopes
-| Scope | สิทธิ์ |
-|---|---|
-| `complaints:read` | GET ดูรายละเอียดเรื่องร้องเรียน |
-| `complaints:write` | POST สร้างเรื่องร้องเรียนใหม่ |
-| `complaints:status` | GET ดูสถานะเรื่องร้องเรียน |
-| `complaints:update` | PUT อัปเดตสถานะเรื่องร้องเรียน |
-| `complaints:edoc` | GET ดึงข้อมูล e-Document payload |
-| `stats:summary` | GET สถิติสรุปเรื่องร้องเรียน |
-| `stats:detailed` | GET สถิติละเอียดแยกตามประเภท/ลำดับความสำคัญ |
-| `corruption:stats` | GET สถิติเรื่องทุจริต |
-| `webhooks:manage` | GET/POST/DELETE จัดการ Webhook |
+| Method | Endpoint | Scope | คำอธิบาย |
+|---|---|---|---|
+| `POST` | `/api/complaints` | `complaints:write` | สร้างเรื่องร้องเรียนใหม่ |
+| `GET` | `/api/complaints/{ref}` | `complaints:read` | ดูรายละเอียดเรื่อง |
+| `GET` | `/api/complaints/{ref}/status` | `complaints:status` | ดูสถานะเรื่อง |
+| `PUT` | `/api/complaints/{ref}/status` | `complaints:update` | อัปเดตสถานะ |
+| `GET` | `/api/complaints/{ref}/edoc-payload` | `complaints:edoc` | ดึงข้อมูลสำหรับ e-Document |
+| `GET` | `/api/stats/summary` | `stats:summary` | สถิติสรุปทั่วไป |
+| `GET` | `/api/stats/detailed` | `stats:detailed` | สถิติละเอียด |
+| `GET` | `/api/stats/corruption` | `corruption:stats` | สถิติเรื่องทุจริต |
+| `GET` | `/api/webhooks` | `webhooks:manage` | รายการ Webhook |
+| `POST` | `/api/webhooks` | `webhooks:manage` | ลงทะเบียน Webhook ใหม่ |
+| `DELETE` | `/api/webhooks/{id}` | `webhooks:manage` | ลบ Webhook |
+| `POST` | `/api/traffy-webhook/{secret}/new-issue` | *(secret in path)* | รับเรื่องใหม่จาก Traffy |
+| `PATCH` | `/api/traffy-webhook/{secret}/update-status` | *(secret in path)* | รับอัปเดตสถานะจาก Traffy |
 
 ---
 
