@@ -16,7 +16,7 @@
 - [ความปลอดภัย](#ความปลอดภัย)
 - [การตั้งค่า (Configuration)](#การตั้งค่า-configuration)
 - [การพัฒนาบนเครื่องท้องถิ่น](#การพัฒนาบนเครื่องท้องถิ่น)
-- [การ Deploy บน IIS (Production)](#การ-deploy-บน-iis-production)
+- [การ Deploy บน IIS (Production)](#การ-deploy-บน-iis-production) — ดูคู่มือละเอียดตั้งแต่ศูนย์ได้ที่ **[DEPLOY.md](./DEPLOY.md)**
 - [การ Migrate ฐานข้อมูล](#การ-migrate-ฐานข้อมูล)
 - [บัญชีผู้ใช้เริ่มต้น](#บัญชีผู้ใช้เริ่มต้น)
 - [Roles & Permissions](#roles--permissions)
@@ -458,6 +458,8 @@ dotnet run --project SRT.Complaint
 ---
 
 ## การ Deploy บน IIS (Production)
+
+> **คู่มือฉบับสมบูรณ์ตั้งแต่ศูนย์** (ติดตั้ง SQL Server, IIS, Migration, Secrets ครบทุกขั้นตอน) อยู่ที่ **[DEPLOY.md](./DEPLOY.md)**
 
 ### ข้อกำหนดเซิร์ฟเวอร์
 
