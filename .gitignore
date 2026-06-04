@@ -22,11 +22,11 @@ appsettings.*.local.json
 Thumbs.db
 desktop.ini
 
-## Screenshots / temp files in root
-*.png
-*.jpg
-*.jpeg
-*.svg.png
+## Screenshots / temp files in root only (not wwwroot)
+/*.png
+/*.jpg
+/*.jpeg
+/*.svg.png
 "New Text Document.txt"
 
 ## Design assets
